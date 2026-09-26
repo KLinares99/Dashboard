@@ -33,15 +33,10 @@ export function Icon({ name, size = 22, label }: { name: keyof typeof PATHS | st
   );
 }
 
-export function Mark() {
+/** The Elevate brand mark (public/elevate-mark.svg, from the brand folder in Drive). */
+export function Mark({ size = 44 }: { size?: number }) {
   return (
-    <div className="mark" aria-hidden="true">
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-        <path d="M12 3.5 15 7H9z" fill="#fff" />
-        <rect x="7" y="9.5" width="10" height="2.2" rx="1.1" fill="#fff" />
-        <rect x="5" y="13.6" width="14" height="2.2" rx="1.1" fill="#fff" opacity=".85" />
-        <rect x="3" y="17.7" width="18" height="2.2" rx="1.1" fill="#fff" opacity=".7" />
-      </svg>
-    </div>
+    // eslint-disable-next-line @next/next/no-img-element
+    <img className="mark" src="/elevate-mark.svg" width={size} height={size} alt="" />
   );
 }

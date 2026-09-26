@@ -75,7 +75,7 @@ a { color: var(--accent); }
 .shell { display: grid; grid-template-columns: var(--side-w) minmax(0, 1fr); min-height: 100%; background: linear-gradient(to right, var(--side) var(--side-w), transparent var(--side-w)); }
 .side { background: var(--side); color: var(--side-text); padding: 28px 18px; display: flex; flex-direction: column; gap: 28px; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
 .brand { display: flex; align-items: center; gap: 14px; padding: 0 8px; text-decoration: none; color: inherit; }
-.mark { width: 44px; height: 44px; border-radius: 10px; background: #2f55d4; display: grid; place-items: center; flex: none; }
+.mark { width: 44px; height: 44px; flex: none; display: block; }
 .brand-name { font-family: var(--display); font-size: 30px; line-height: 1; font-weight: 500; color: #fff; }
 .brand-sub { font-size: 10.5px; letter-spacing: .3em; color: var(--side-muted); margin-top: 6px; line-height: 1.5; }
 .side-close { display: none; margin-left: auto; background: none; border: 0; color: var(--side-text); cursor: pointer; padding: 6px; }

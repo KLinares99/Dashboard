@@ -1,7 +1,9 @@
-# Elevate Client Board
+# Elevate Command Center
 
-One page that shows every Elevate BSI client: status, money, next step, blockers, timeline, and task checklists.
+Internal Elevate BSI dashboard. Every client, task, deadline and invoice in one place.
 
-- Open `index.html` in any browser. No build step needed.
-- Edit `clients.js` to update clients, tasks, and dates. Nothing else needs to change.
-- Checking a box saves only in your browser. Update `clients.js` (or Notion) to make it permanent.
+**Tabs:** Pulse (all clients at a glance) · Clients (one page per client, with a switcher) · Tasks (board) · Schedule · Billing · Prospects
+
+- Open `index.html` in a browser. No build step.
+- Edit `clients.js` to change clients, tasks, dates, and unpaid months. Nothing else needs to change.
+- Checkboxes save only in your own browser.

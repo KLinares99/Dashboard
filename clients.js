@@ -6,6 +6,8 @@
 // type:     "retainer" (monthly) | "project" (one-time) | "internal"
 // tasks:    [text, done, flag]   flag: "urgent" | "blocked" | undefined
 // owed:     [[month, amount], ...]  unpaid invoices; remove a row once paid
+// billing:  "current" | "paid" | "owed" | "not-invoiced" | "internal"
+// headline: big serif line on the client page; *word* turns blue italic
 
 window.ELEVATE_DATA = {
   asOf: "2026-09-20",
@@ -13,6 +15,8 @@ window.ELEVATE_DATA = {
   clients: [
     {
       id: "relevate",
+      headline: "Rebuilt, now getting *found*.",
+      billing: "current",
       name: "Relevate Solutions",
       contact: "Raymond Castro (Pastor Raymond)",
       color: "blue",
@@ -46,6 +50,8 @@ window.ELEVATE_DATA = {
     },
     {
       id: "nyti",
+      headline: "Four reels from *done*.",
+      billing: "paid",
       name: "NYTI",
       contact: "Pastor Raymond",
       color: "purple",
@@ -71,6 +77,8 @@ window.ELEVATE_DATA = {
     },
     {
       id: "musica",
+      headline: "Three reels from *done*.",
+      billing: "paid",
       name: "Escuela de Música",
       contact: "Pastor Raymond · Misión Internacional",
       color: "purple",
@@ -93,6 +101,8 @@ window.ELEVATE_DATA = {
     },
     {
       id: "warriors",
+      headline: "From workbook to *movement*.",
+      billing: "owed",
       name: "The Warriors Project",
       contact: "Robert",
       color: "orange",
@@ -129,6 +139,8 @@ window.ELEVATE_DATA = {
     },
     {
       id: "landscaping",
+      headline: "Waiting on the *intake form*.",
+      billing: "not-invoiced",
       name: "Landscaping Website",
       contact: "HVQ Landscaping (Hector), confirm",
       color: "teal",
@@ -151,6 +163,8 @@ window.ELEVATE_DATA = {
     },
     {
       id: "elevate",
+      headline: "Our own feed, *October* next.",
+      billing: "internal",
       name: "Elevate BSI (in-house)",
       contact: "Kevin",
       color: "green",

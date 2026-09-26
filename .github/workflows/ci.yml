@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Unit tests
+        run: npm test
+
+      - name: Start local Supabase
+        run: npx supabase start -x edge-runtime,logflare,vector,imgproxy,supavisor,postgres-meta,studio
+      - name: Database security tests
+        run: npx supabase test db
+      - name: Write app environment
+        run: |
+          eval "$(npx supabase status -o env | grep -E '^(API_URL|ANON_KEY|SERVICE_ROLE_KEY)=')"
+          {
+            echo "NEXT_PUBLIC_SUPABASE_URL=$API_URL"
+            echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$ANON_KEY"
+            echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY"
+            echo "NEXT_PUBLIC_SITE_URL=http://localhost:3000"
+          } > .env.local
+          cat .env.local | sed 's/=.*/=***/'
+
+      - name: Build (includes lint and type check)
+        run: npm run build
+
+      - run: npx playwright install --with-deps chromium
+      - name: End-to-end tests
+        run: |
+          npx supabase db reset
+          set -a; . ./.env.local; set +a
+          npx next start -p 3000 &
+          npx wait-on -t 60000 http://localhost:3000/login
+          E2E_BASE_URL=http://localhost:3000 npx playwright test
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: test-results/

@@ -1,0 +1,55 @@
+export type Role = "staff" | "client";
+export type ClientStatus = "urgent" | "active" | "waiting" | "done" | "parked";
+export type ClientType = "retainer" | "project" | "internal";
+export type TaskFlag = "urgent" | "blocked";
+export type InvoiceStatus = "draft" | "sent" | "paid" | "void";
+export type ClientColor = "blue" | "purple" | "orange" | "teal" | "green" | "pink";
+
+export type Profile = { id: string; email: string; full_name: string | null; role: Role; client_id: string | null };
+
+export type Client = {
+  id: string;
+  slug: string;
+  name: string;
+  contact_name: string | null;
+  contact_email: string | null;
+  color: ClientColor;
+  type: ClientType;
+  price_cents: number;
+  status: ClientStatus;
+  summary: string | null;
+  headline: string | null;
+  next_step: string | null;
+  services: string[];
+  drive_folder_id: string | null;
+  notion_url: string | null;
+  archived: boolean;
+  created_at: string;
+};
+
+export type Task = {
+  id: string;
+  client_id: string;
+  title: string;
+  notes: string | null;
+  done: boolean;
+  done_at: string | null;
+  flag: TaskFlag | null;
+  due_on: string | null;
+  visible_to_client: boolean;
+  position: number;
+  created_at: string;
+};
+
+export type Blocker = { id: string; client_id: string; text: string; resolved: boolean; created_at: string };
+export type EventItem = { id: string; client_id: string; on_date: string; label: string; done: boolean; visible_to_client: boolean };
+export type Invoice = {
+  id: string; client_id: string; label: string; amount_cents: number; status: InvoiceStatus;
+  issued_on: string | null; due_on: string | null; paid_on: string | null; created_at: string;
+};
+export type Prospect = { id: string; name: string; detail: string | null; note: string | null; status: ClientStatus };
+export type AnalyticsUpload = {
+  id: string; client_id: string; source: string; filename: string; storage_path: string;
+  row_count: number; date_from: string | null; date_to: string | null; created_at: string;
+};
+export type Metric = { metric: string; on_date: string; value: number; source: string };

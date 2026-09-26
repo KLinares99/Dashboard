@@ -44,7 +44,7 @@ h1 span { color: var(--green); }
 h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 32px 0 12px; font-weight: 600; }
 
 /* KPIs */
-.kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.kpis { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
 .kpi { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; box-shadow: var(--shadow); }
 .kpi .v { font-size: 28px; font-weight: 700; letter-spacing: -.02em; }
 .kpi .l { color: var(--muted); font-size: 13px; }
@@ -99,6 +99,9 @@ h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: v
 .bar i { display: block; height: 100%; background: var(--c); border-radius: 99px; transition: width .3s; }
 .next { background: var(--surface-2); border-left: 3px solid var(--c); border-radius: 6px; padding: 8px 10px; font-size: 14px; }
 .next b { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.owed { background: var(--urgent-bg); color: var(--urgent); border-radius: 8px; padding: 10px 12px; font-size: 13px; }
+.owed b { font-size: 18px; display: block; }
+.owed span { display: inline-block; margin-right: 10px; }
 .block { font-size: 13px; color: var(--waiting); }
 .block ul { margin: 4px 0 0; padding-left: 18px; }
 details { border-top: 1px solid var(--border); }
@@ -206,10 +209,12 @@ details[open] summary::after { content: "▴"; }
     D.clients.forEach((c) => c.tasks.forEach((t, i) => { if (!isDone(c, i)) { open++; if (t[2] === "urgent") urgent++; } }));
     const mrr = paying.filter((c) => c.type === "retainer").reduce((a, c) => a + c.value, 0);
     const proj = paying.filter((c) => c.type === "project").reduce((a, c) => a + c.value, 0);
+    const owed = D.clients.reduce((a, c) => a + (c.owed || []).reduce((x, o) => x + o[1], 0), 0);
     $("kpis").innerHTML = [
       [paying.length, "Active clients"],
       ["$" + mrr.toLocaleString(), "Monthly retainer"],
       ["$" + proj.toLocaleString(), "Project work in play"],
+      ["$" + owed.toLocaleString(), "Unpaid · owed to you", owed ? "red" : ""],
       [urgent, `Urgent tasks · ${open} open total`, "red"],
     ].map(([v, l, cls]) => `<div class="kpi ${cls || ""}"><div class="v">${v}</div><div class="l">${l}</div></div>`).join("");
   }
@@ -280,6 +285,7 @@ details[open] summary::after { content: "▴"; }
         <div class="card-b">
           <div class="meta"><span class="tag money">${esc(c.valueLabel)}</span>${c.services.map((s) => `<span class="tag">${esc(s)}</span>`).join("")}</div>
           <div class="progress"><div class="bar"><i style="width:${pct}%"></i></div>${done}/${c.tasks.length} done</div>
+          ${(c.owed || []).length ? `<div class="owed"><b>Owes $${c.owed.reduce((a, o) => a + o[1], 0).toLocaleString()}</b>${c.owed.map((o) => `<span>${esc(o[0])} · $${o[1]}</span>`).join("")}</div>` : ""}
           <div class="next"><b>Next step</b>${esc(c.next)}</div>
           ${c.blockers.length ? `<div class="block">⚠ Waiting on<ul>${c.blockers.map((b) => `<li>${esc(b)}</li>`).join("")}</ul></div>` : ""}
           <a class="nl" href="${esc(c.notion)}" target="_blank" rel="noopener">Open in Notion →</a>

@@ -5,6 +5,7 @@
 // status:   "urgent" | "active" | "waiting" | "done" | "parked"
 // type:     "retainer" (monthly) | "project" (one-time) | "internal"
 // tasks:    [text, done, flag]   flag: "urgent" | "blocked" | undefined
+// owed:     [[month, amount], ...]  unpaid invoices; remove a row once paid
 
 window.ELEVATE_DATA = {
   asOf: "2026-09-20",
@@ -96,10 +97,14 @@ window.ELEVATE_DATA = {
       contact: "Robert",
       color: "orange",
       emoji: "🛡️",
-      type: "project",
-      value: 150,
-      valueLabel: "$150 paid · $100/day rate",
-      status: "active",
+      type: "retainer",
+      value: 444,
+      valueLabel: "$444 / mo",
+      owed: [
+        ["August 2026", 444],
+        ["September 2026", 444],
+      ],
+      status: "urgent",
       services: ["Skool", "Workbook", "Social content"],
       summary:
         "12-module WARRIORS workbook + Skool community. Launched Sept 13. Free tier feeds a paid masterclass and 1:1 coaching.",
@@ -118,6 +123,7 @@ window.ELEVATE_DATA = {
         ["Men's fellowship meeting recorded", true],
         ["Strategy call (Sat Sept 12)", true],
         ["Invoice $150 for recording (paid)", true],
+        ["Collect $888 unpaid retainer (Aug + Sept)", false, "urgent"],
         ["Rebatch content starting Mon Oct 5", false],
       ],
     },

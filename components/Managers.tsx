@@ -2,12 +2,12 @@
 
 import { useActionState, useState, useTransition } from "react";
 import {
-  type ActionResult, addBlocker, addEvent, addInvoice, addProspect, archiveClient, createClientRecord,
-  deleteEvent, deleteInvoice, deleteProspect, deleteUpload, inviteClientUser, resolveBlocker, revokeClientUser,
+  type ActionResult, addEvent, addInvoice, addProspect, archiveClient, createClientRecord,
+  deleteEvent, deleteInvoice, deleteProspect, deleteUpload, inviteClientUser, revokeClientUser,
   setEventDone, setInvoiceStatus, updateClientQuick, updateClientRecord, uploadAnalytics,
 } from "@/app/app/actions";
 import { INVOICE_LABEL, STATUS_LABEL, daysBetween, fmtDate, money } from "@/lib/format";
-import type { AnalyticsUpload, Blocker, Client, ClientStatus, EventItem, Invoice, Prospect } from "@/lib/types";
+import type { AnalyticsUpload, Client, ClientStatus, EventItem, Invoice, Prospect } from "@/lib/types";
 import { Icon } from "./Icon";
 import { ConfirmDelete } from "./TaskList";
 
@@ -131,33 +131,6 @@ export function QuickStatus({ client }: { client: Client }) {
 }
 
 // ---------------------------------------------------------------------------
-// Blockers
-// ---------------------------------------------------------------------------
-export function BlockerList({ clientId, blockers }: { clientId: string; blockers: Blocker[] }) {
-  const { run, result, pending } = useRun();
-  const [text, setText] = useState("");
-  return (
-    <div>
-      <div className="list-rows">
-        {blockers.map((b) => (
-          <div key={b.id}>
-            <span>{b.text}</span>
-            <button className="btn small" type="button" disabled={pending} onClick={() => run(() => resolveBlocker(b.id))}>Received</button>
-          </div>
-        ))}
-        {!blockers.length && <div className="empty">Nothing. The ball is in our court.</div>}
-      </div>
-      <form className="add-task" onSubmit={(e) => { e.preventDefault(); run(() => addBlocker(clientId, text), () => setText("")); }}>
-        <label className="sr-only" htmlFor={`blocker-${clientId}`}>Waiting on</label>
-        <input id={`blocker-${clientId}`} className="input" value={text} onChange={(e) => setText(e.target.value)} placeholder="Something you need from the client" maxLength={300} />
-        <button className="btn" type="submit" disabled={pending || !text.trim()}>Add</button>
-      </form>
-      <Result r={result && !result.ok ? result : null} />
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
 // Events (dates)
 // ---------------------------------------------------------------------------
 export function EventRows({ events, clients, today, editable }: {
@@ -247,7 +220,7 @@ export function InvoiceRows({ invoices, clients, editable, showClient }: {
             return (
               <tr key={i.id}>
                 {showClient && <td><span className="row-gap" style={{ gap: 8, color: "var(--ink)", fontWeight: 500 }}><i className="dot" style={{ "--c": `var(--c-${c?.color})` } as React.CSSProperties} />{c?.name}</span></td>}
-                <td>{i.label}</td>
+                <td>{i.label}{i.pay_url && <div className="muted" style={{ fontSize: 13 }}>Has payment link</div>}</td>
                 <td className="muted" style={{ fontSize: 14 }}>
                   {i.paid_on ? `Paid ${fmtDate(i.paid_on)}` : i.issued_on ? `Issued ${fmtDate(i.issued_on)}` : "Not issued"}
                 </td>
@@ -279,11 +252,12 @@ export function AddInvoiceForm({ clients, fixedClientId, defaultAmount }: { clie
   const [amount, setAmount] = useState(defaultAmount ? String(defaultAmount / 100) : "");
   const [status, setStatus] = useState<"draft" | "sent" | "paid">("sent");
   const [issued, setIssued] = useState(new Date().toISOString().slice(0, 10));
+  const [payUrl, setPayUrl] = useState("");
   const k = fixedClientId ?? "all";
   return (
     <form className="stack" style={{ gap: 12 }} onSubmit={(e) => {
       e.preventDefault();
-      run(() => addInvoice({ client_id: clientId, label, amount, status, issued_on: issued, due_on: "" }), () => setLabel(""));
+      run(() => addInvoice({ client_id: clientId, label, amount, status, issued_on: issued, due_on: "", pay_url: payUrl }), () => { setLabel(""); setPayUrl(""); });
     }}>
       <div className="form-grid">
         {!fixedClientId && (
@@ -303,6 +277,7 @@ export function AddInvoiceForm({ clients, fixedClientId, defaultAmount }: { clie
           </select>
         </label>
         <label className="field"><span>Issued on</span><input id={`inv-issued-${k}`} className="input" type="date" value={issued} onChange={(e) => setIssued(e.target.value)} /></label>
+        <label className="field wide"><span>Payment link (optional). The client gets a &ldquo;Pay&rdquo; button, e.g. your QuickBooks invoice link.</span><input id={`inv-pay-${k}`} className="input" type="url" value={payUrl} onChange={(e) => setPayUrl(e.target.value)} placeholder="https://" /></label>
       </div>
       <div className="form-actions"><button className="btn primary" type="submit" disabled={pending}>Add invoice</button></div>
       <Result r={result && !result.ok ? result : null} />
@@ -337,7 +312,7 @@ export function ClientAccess({ client, logins }: { client: Client; logins: { id:
       </form>
       <Result r={result} />
       <p className="muted" style={{ margin: 0, fontSize: 14 }}>
-        They get an email with a one-click link. After that they sign in at /login with the same email. They see tasks and dates marked as shared, content, analytics, and sent or paid invoices. They never see internal tasks, blockers, drafts or other clients.
+        They get an email with a one-click link. After that they sign in at /login with the same email. They see three things: invoices due, their to-dos (which they can tick off), and the content in their Client Portal folder. They never see Elevate&apos;s own tasks, drafts or other clients.
       </p>
     </div>
   );

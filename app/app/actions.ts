@@ -35,7 +35,7 @@ const TaskInput = z.object({
   title: z.string().trim().min(1, "Give the task a name.").max(300),
   flag: z.enum(["urgent", "blocked"]).nullable().optional(),
   due_on: optDate.optional(),
-  visible_to_client: z.boolean().optional(),
+  assignee: z.enum(["elevate", "client"]).optional(),
   notes: optText,
 });
 
@@ -163,28 +163,6 @@ export async function archiveClient(id: string): Promise<ActionResult> {
 }
 
 // ---------------------------------------------------------------------------
-// Blockers ("waiting on client")
-// ---------------------------------------------------------------------------
-export async function addBlocker(clientId: string, text: string): Promise<ActionResult> {
-  const t = z.string().trim().min(1, "Say what you're waiting on.").max(300).safeParse(text);
-  if (!uuid.safeParse(clientId).success || !t.success) return fail(t.error?.issues[0].message ?? "Unknown client.");
-  const { db } = await staffDb();
-  const { error } = await db.from("blockers").insert({ client_id: clientId, text: t.data });
-  if (error) return fail(error.message);
-  refresh();
-  return { ok: true };
-}
-
-export async function resolveBlocker(id: string): Promise<ActionResult> {
-  if (!uuid.safeParse(id).success) return fail("Unknown item.");
-  const { db } = await staffDb();
-  const { error } = await db.from("blockers").update({ resolved: true }).eq("id", id);
-  if (error) return fail(error.message);
-  refresh();
-  return { ok: true };
-}
-
-// ---------------------------------------------------------------------------
 // Events (dates)
 // ---------------------------------------------------------------------------
 const EventInput = z.object({
@@ -232,6 +210,7 @@ const InvoiceInput = z.object({
   status: z.enum(["draft", "sent", "paid"]),
   issued_on: optDate,
   due_on: optDate,
+  pay_url: z.string().trim().url("The payment link should start with https://").startsWith("https://", "The payment link should start with https://").or(z.literal("")).optional().transform((v) => v || null),
 });
 
 export async function addInvoice(input: z.input<typeof InvoiceInput>): Promise<ActionResult> {

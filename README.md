@@ -8,8 +8,8 @@ The Elevate BSI web app. Staff manage every client in one place, and each client
   (allowlisted)        │           Tasks · Schedule ·  │
                        │           Billing · Prospects │
                        ├───────────────────────────────┤
-  Client contact ────▶ │  /portal  Overview · Content ·│
-  (invited by email)   │           Results · Invoices  │
+  Client contact ────▶ │  /portal  one page: invoice,  │
+  (invited by email)   │           to-dos, content     │
                        └──────────────┬────────────────┘
                                       │  Next.js on Vercel
              ┌────────────────────────┼─────────────────────────┐
@@ -25,12 +25,12 @@ The Elevate BSI web app. Staff manage every client in one place, and each client
 
 | | Staff | Client |
 |---|---|---|
-| See all clients, prospects, blockers | ✅ | ❌ |
-| Add, edit, complete, delete tasks | ✅ | ❌ (read-only) |
-| Mark a task internal (hidden from client) | ✅ | never sees it |
-| Dates, invoices (add, mark sent/paid) | ✅ | sees shared dates and non-draft invoices |
-| Upload analytics CSVs → charts | ✅ | sees the charts |
-| Browse Drive content | ✅ | ✅ own folder only |
+| See all clients and prospects | ✅ | ❌ |
+| Elevate's own tasks (add, edit, complete, delete) | ✅ | never sees them |
+| Client to-dos (tasks set to "Client") | ✅ add/edit | ✅ sees and ticks off their own |
+| Invoices (add, mark sent/paid, optional payment link) | ✅ | sees what's due, with a Pay button if there's a link |
+| Upload analytics CSVs → charts | ✅ | ❌ (staff only for now) |
+| This month's content from Drive | ✅ | ✅ own Client Portal folder only |
 | Invite / remove client logins | ✅ | ❌ |
 
 These rules are enforced in the database (`supabase/migrations`), not just the UI, and covered by `supabase/tests/rls.test.sql`.
@@ -103,6 +103,10 @@ Clients see thumbnails and can open images, videos and PDFs through the app, so 
 
 ### 4. Your data
 The local seed (`supabase/seed.sql`) mirrors the Notion board from Sept 20, 2026. For production, add clients through **Clients → New client**, or run the seed's `insert` statements in the SQL editor.
+
+## Client content in Drive
+
+Give each client a **Client Portal** folder in Drive, shared (Viewer) with the app's service account, and paste its link in the client's Settings. Put each month in a subfolder named for the month, e.g. `October 2026` or `Octubre 2026`. The portal shows the current month's folder; earlier months are listed underneath. Loose files at the top level also work.
 
 ## Analytics uploads
 

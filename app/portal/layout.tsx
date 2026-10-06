@@ -1,20 +1,13 @@
-import { Shell } from "@/components/Shell";
+import { PortalBar } from "@/components/Portal";
 import { requireClientUser } from "@/lib/auth";
-import { createClient } from "@/lib/supabase/server";
+import "./portal.css";
 
 export default async function PortalLayout({ children }: { children: React.ReactNode }) {
-  const me = await requireClientUser();
-  const db = await createClient();
-  const { data: unpaid } = await db.from("invoices").select("amount_cents").eq("status", "sent");
-  const owes = (unpaid ?? []).length > 0;
+  await requireClientUser();
   return (
-    <Shell footLabel="CLIENT PORTAL" who={me.email} nav={[
-      { href: "/portal", label: "Overview", icon: "home" },
-      { href: "/portal/content", label: "Content", icon: "content" },
-      { href: "/portal/results", label: "Results", icon: "chart" },
-      { href: "/portal/invoices", label: "Invoices", icon: "billing", badge: owes ? { text: "$", tone: "red" } : undefined },
-    ]}>
+    <div className="ios">
+      <PortalBar signOut />
       {children}
-    </Shell>
+    </div>
   );
 }

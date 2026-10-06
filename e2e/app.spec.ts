@@ -55,14 +55,13 @@ test.describe("staff", () => {
     const editor = staff.locator(".task-edit");
     await editor.getByLabel("Task").fill("E2E: final October carousel");
     await editor.getByLabel("Priority").selectOption("urgent");
-    await editor.getByLabel("Client can see this").uncheck();
+    await editor.getByLabel("Who").selectOption("elevate");
     await editor.getByRole("button", { name: "Save" }).click();
     const edited = staff.locator(".task", { hasText: "E2E: final October carousel" });
     await expect(edited.locator(".pill", { hasText: "urgent" })).toBeVisible();
-    await expect(edited.locator(".pill", { hasText: "Internal" })).toBeVisible();
 
     await edited.getByRole("checkbox").check();
-    await expect(staff.locator('ul.task-list[aria-busy="false"]')).toBeVisible();
+    await expect(staff.locator('ul.task-list[aria-busy="true"]')).toHaveCount(0);
     await expect(staff.locator(".task.done", { hasText: "E2E: final October carousel" })).toBeVisible(); // stays visible
     await staff.reload();
     await staff.getByRole("button", { name: /Show all \d+ completed/ }).click();
@@ -118,6 +117,17 @@ test.describe("staff", () => {
   });
 });
 
+test("staff adds a to-do for the client", async () => {
+  await staff.goto("/app/clients/warriors?tab=tasks");
+  const theirs = staff.locator("section.panel", { hasText: "Client to-dos" });
+  const input = theirs.getByPlaceholder("Add something the client needs to do");
+  await input.fill("E2E: approve October posts");
+  await input.press("Enter");
+  await expect(theirs.locator(".task", { hasText: "E2E: approve October posts" }).getByRole("button", { name: "Edit task" })).toBeVisible();
+  // It is not in Elevate's own list
+  await expect(staff.locator("section.panel", { hasText: "Our tasks" }).getByText("E2E: approve October posts")).toHaveCount(0);
+});
+
 test.describe("client", () => {
   let client: Page;
   test.beforeAll(async ({ browser }: { browser: Browser }) => {
@@ -125,20 +135,41 @@ test.describe("client", () => {
     await client.goto(await latestLink(CLIENT, Date.now() - 120_000)); // the invite email
   });
 
-  test("sees only their own shared work", async () => {
+  test("sees one simple page: invoice, their to-dos, content", async () => {
     await expect(client).toHaveURL(/\/portal$/);
-    await expect(client.getByRole("heading", { level: 1, name: "The Warriors Project" })).toBeVisible();
-    await expect(client.getByText("Rebatch content starting Mon Oct 5")).toBeVisible();
-    await expect(client.getByText("Collect unpaid retainer")).toHaveCount(0); // internal task
-    await expect(client.getByText("Masterclass price not set")).toHaveCount(0); // blocker
-    await expect(client.getByText("Relevate")).toHaveCount(0);
+    await expect(client.getByRole("heading", { level: 1, name: /Good (morning|afternoon|evening)/ })).toBeVisible();
+    await expect(client.getByText(/The Warriors Project ·/)).toBeVisible();
+    // Invoice due (August was marked paid by staff above)
+    const invoice = client.locator(".ios-invoice");
+    await expect(invoice).toHaveCount(1);
+    await expect(invoice).toContainText("September 2026 retainer");
+    await expect(invoice).toContainText("$444");
+    // Their own action items only
+    await expect(client.getByText("Set the masterclass price")).toBeVisible();
+    await expect(client.getByText("E2E: approve October posts")).toBeVisible();
+    await expect(client.getByText("Rebatch content starting Mon Oct 5")).toHaveCount(0); // Elevate's task
+    await expect(client.getByText("Collect unpaid retainer")).toHaveCount(0);
+    await expect(client.getByText("Send staff photos")).toHaveCount(0); // another client's
+    // Content placeholder until Drive is linked
+    await expect(client.getByText("Coming soon")).toBeVisible();
   });
 
-  test("sees results and invoices", async () => {
-    await client.goto("/portal/results");
-    await expect(client.locator(".chart-head", { hasText: "Active users" })).toBeVisible();
-    await client.goto("/portal/invoices");
-    await expect(client.getByRole("heading", { name: /\$444 due/ })).toBeVisible();
+  test("ticks off a to-do, and staff see it done", async () => {
+    await client.getByLabel("E2E: approve October posts").check();
+    await expect(client.getByLabel("E2E: approve October posts")).toBeChecked();
+    await expect(client.locator(".ios-todo.done", { hasText: "E2E: approve October posts" })).toBeVisible();
+    await expect.poll(async () => (await admin().from("tasks").select("done").eq("title", "E2E: approve October posts").single()).data?.done).toBe(true);
+    await client.reload();
+    await expect(client.getByRole("button", { name: "Show 1 completed" })).toBeVisible();
+    await staff.goto("/app/clients/warriors?tab=tasks");
+    await expect(staff.locator(".task.done", { hasText: "E2E: approve October posts" })).toBeVisible();
+  });
+
+  test("sees all invoices", async () => {
+    await client.getByRole("link", { name: "See all" }).click();
+    await expect(client.getByRole("heading", { level: 1, name: "Invoices" })).toBeVisible();
+    await expect(client.locator(".ios-row", { hasText: "August 2026 retainer" })).toContainText("Paid");
+    await expect(client.getByText("Website build")).toHaveCount(0); // another client's draft
   });
 
   test("can't open staff pages or other clients", async () => {

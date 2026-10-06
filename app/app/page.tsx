@@ -80,7 +80,7 @@ export default async function Pulse() {
           <div className="panel-h"><span className="label">All clients</span><Link className="seg" href="/app/clients/new">Add client</Link></div>
           <div>
             {ws.clients.map((c) => {
-              const p = progress(ws.tasks.filter((t) => t.client_id === c.id));
+              const p = progress(ws.tasks.filter((t) => t.client_id === c.id && t.assignee === "elevate"));
               return (
                 <Link key={c.id} href={`/app/clients/${c.slug}`} className="roster-row" style={{ "--c": `var(--c-${c.color})` } as React.CSSProperties}>
                   <span className="n"><i className="dot" /><span>{c.name}<small>{priceLabel(c)}</small></span></span>

@@ -1,7 +1,7 @@
 -- Row level security tests. Run with: npm run db:test
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(24);
+select plan(29);
 
 -- Users: one staff, one Warriors client, one Relevate client, one unlinked client.
 -- Test-only emails, so this runs no matter which logins already exist.
@@ -29,7 +29,7 @@ select set_config('test.total_clients', (select count(*) from public.clients)::t
 set local role authenticated;
 set local request.jwt.claims = '{"sub":"aaaaaaaa-0000-4000-8000-000000000001","role":"authenticated"}';
 select is((select count(*)::int from public.clients), current_setting('test.total_clients')::int, 'staff sees all clients');
-select ok((select count(*) from public.blockers) > 0, 'staff sees blockers');
+select ok((select count(*) from public.tasks where assignee = 'elevate') > 0, 'staff sees Elevate tasks');
 select ok((select count(*) from public.prospects) > 0, 'staff sees prospects');
 select lives_ok($$ insert into public.tasks (client_id, title) values ('11111111-0000-4000-8000-000000000004', 'Staff-added task') $$, 'staff can add tasks');
 select lives_ok($$ update public.clients set next_step = 'Edited' where slug = 'nyti' $$, 'staff can edit clients');
@@ -39,16 +39,28 @@ set local request.jwt.claims = '{"sub":"aaaaaaaa-0000-4000-8000-000000000002","r
 select is((select count(*)::int from public.clients), 1, 'client sees exactly one client');
 select is((select slug from public.clients), 'warriors', 'and it is their own');
 select is((select count(*)::int from public.tasks where client_id <> '11111111-0000-4000-8000-000000000004'), 0, 'no other clients'' tasks');
-select is((select count(*)::int from public.tasks where not visible_to_client), 0, 'internal tasks are hidden');
-select ok((select count(*) from public.tasks) > 0, 'shared tasks are visible');
-select is((select count(*)::int from public.blockers), 0, 'blockers hidden from clients');
+select is((select count(*)::int from public.tasks where assignee <> 'client'), 0, 'Elevate''s own tasks are hidden');
+select ok((select count(*) from public.tasks) > 0, 'their action items are visible');
 select is((select count(*)::int from public.prospects), 0, 'prospects hidden from clients');
 select is((select count(*)::int from public.invoices), 3, 'client sees own non-draft invoices');
 select is((select count(*)::int from public.profiles), 1, 'client sees only own profile');
 
 -- Writes must not stick
-update public.tasks set done = true where client_id = '11111111-0000-4000-8000-000000000004';
-select is((select count(*)::int from public.tasks where title = 'Rebatch content starting Mon Oct 5' and done), 0, 'client cannot update tasks');
+update public.tasks set done = true, title = 'hacked' where client_id = '11111111-0000-4000-8000-000000000004';
+select is((select count(*)::int from public.tasks where title = 'hacked'), 0, 'client cannot edit tasks directly');
+
+-- Ticking off their own action item works, through the function only
+select is(public.set_my_task_done((select id from public.tasks where title = 'Set the masterclass price'), true), true, 'client can tick off their own action item');
+select is((select done from public.tasks where title = 'Set the masterclass price'), true, 'and it is saved');
+reset role;
+select set_config('test.elevate_task', (select id::text from public.tasks where title = 'Rebatch content starting Mon Oct 5'), true);
+select set_config('test.other_client_task', (select id::text from public.tasks where title = 'Send staff photos'), true);
+set local role authenticated;
+select is(public.set_my_task_done(current_setting('test.elevate_task')::uuid, true), false, 'client cannot tick off Elevate''s tasks');
+select is(public.set_my_task_done(current_setting('test.other_client_task')::uuid, true), false, 'client cannot tick off another client''s items');
+reset role;
+select is((select count(*)::int from public.tasks where id in (current_setting('test.elevate_task')::uuid, current_setting('test.other_client_task')::uuid) and done), 0, 'those tasks are unchanged');
+set local role authenticated;
 select throws_ok($$ insert into public.tasks (client_id, title) values ('11111111-0000-4000-8000-000000000004', 'x') $$, '42501', null, 'client cannot insert tasks');
 update public.profiles set role = 'staff' where id = 'aaaaaaaa-0000-4000-8000-000000000002';
 select is(public.is_staff(), false, 'client cannot promote themselves');
@@ -62,6 +74,7 @@ select is((select count(*)::int from public.invoices), 0, 'Relevate cannot see W
 -- ---------- Unlinked client ----------
 set local request.jwt.claims = '{"sub":"aaaaaaaa-0000-4000-8000-000000000004","role":"authenticated"}';
 select is((select count(*)::int from public.clients), 0, 'unlinked login sees nothing');
+select is(public.set_my_task_done(current_setting('test.other_client_task')::uuid, true), false, 'unlinked login cannot tick off anything');
 
 -- ---------- Anonymous ----------
 reset role;

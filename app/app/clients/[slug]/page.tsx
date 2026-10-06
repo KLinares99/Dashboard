@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { DriveSection } from "@/components/DriveSection";
 import { Icon } from "@/components/Icon";
 import {
-  AddEventForm, AddInvoiceForm, ArchiveClient, BlockerList, ClientAccess, ClientForm, EventRows, InvoiceRows, QuickStatus, UploadAnalytics,
+  AddEventForm, AddInvoiceForm, ArchiveClient, ClientAccess, ClientForm, EventRows, InvoiceRows, QuickStatus, UploadAnalytics,
 } from "@/components/Managers";
 import { MetricsView } from "@/components/MetricsView";
 import { Headline } from "@/components/Portal";
@@ -31,11 +31,13 @@ export default async function ClientPage({ params, searchParams }: {
   const tab: Tab = (TABS.find(([k]) => k === sp.tab)?.[0] ?? "overview") as Tab;
   const [bundle, ws] = await Promise.all([loadClient({ slug }), loadWorkspace()]);
   if (!bundle) notFound();
-  const { client: c, tasks, events, invoices, blockers, uploads, metrics } = bundle;
+  const { client: c, tasks, events, invoices, uploads, metrics } = bundle;
+  const ours = tasks.filter((t) => t.assignee === "elevate");
+  const theirs = tasks.filter((t) => t.assignee === "client");
   const today = todayISO();
-  const p = progress(tasks);
+  const p = progress(ours);
   const owed = unpaidCents(invoices);
-  const flagged = tasks.filter((t) => !t.done && (t.flag || (t.due_on && t.due_on < today)));
+  const flagged = ours.filter((t) => !t.done && (t.flag || (t.due_on && t.due_on < today)));
   const logins = tab === "access" ? await loadClientLogins(c.id) : [];
   const base = `/app/clients/${c.slug}`;
 
@@ -73,14 +75,14 @@ export default async function ClientPage({ params, searchParams }: {
               <div className="stack">
                 <QuickStatus client={c} />
                 <section className="panel">
-                  <div className="panel-h"><span className="label">Tasks</span><span className="num muted" style={{ fontSize: 14 }}>{p.done}/{p.total}</span></div>
-                  <div className="panel-b tight"><TaskList clientId={c.id} tasks={tasks} editable today={today} /></div>
+                  <div className="panel-h"><span className="label">Our tasks</span><span className="num muted" style={{ fontSize: 14 }}>{p.done}/{p.total}</span></div>
+                  <div className="panel-b tight"><TaskList clientId={c.id} tasks={ours} editable today={today} /></div>
                 </section>
               </div>
               <div className="stack">
                 <section className="panel">
-                  <div className="panel-h"><span className="label">Waiting on client</span><span className="pill p-hidden">Internal</span></div>
-                  <div className="panel-b"><BlockerList clientId={c.id} blockers={blockers} /></div>
+                  <div className="panel-h"><span className="label">Client to-dos</span><span className="muted" style={{ fontSize: 13 }}>Shown in their portal</span></div>
+                  <div className="panel-b tight"><TaskList key="client" clientId={c.id} tasks={theirs} editable today={today} assignee="client" /></div>
                 </section>
                 <section className="panel">
                   <div className="panel-h"><span className="label">Dates</span></div>
@@ -94,10 +96,16 @@ export default async function ClientPage({ params, searchParams }: {
         )}
 
         {tab === "tasks" && (
-          <section className="panel">
-            <div className="panel-h"><span className="label">All tasks</span><span className="muted" style={{ fontSize: 14 }}>Double-click a task to edit. The eye shows whether the client can see it.</span></div>
-            <div className="panel-b tight"><TaskList clientId={c.id} tasks={tasks} editable today={today} /></div>
-          </section>
+          <div className="cols">
+            <section className="panel">
+              <div className="panel-h"><span className="label">Our tasks</span><span className="muted" style={{ fontSize: 14 }}>Only Elevate sees these. Double-click to edit.</span></div>
+              <div className="panel-b tight"><TaskList clientId={c.id} tasks={ours} editable today={today} /></div>
+            </section>
+            <section className="panel">
+              <div className="panel-h"><span className="label">Client to-dos</span><span className="muted" style={{ fontSize: 14 }}>The client sees these and can tick them off.</span></div>
+              <div className="panel-b tight"><TaskList key="client" clientId={c.id} tasks={theirs} editable today={today} assignee="client" /></div>
+            </section>
+          </div>
         )}
 
         {tab === "content" && (

@@ -3,17 +3,18 @@
 import { useOptimistic, useState, useTransition } from "react";
 import { createTask, deleteTask, updateTask } from "@/app/app/actions";
 import { fmtDate } from "@/lib/format";
-import type { Task, TaskFlag } from "@/lib/types";
+import type { Task, TaskAssignee, TaskFlag } from "@/lib/types";
 import { Icon } from "./Icon";
 
-type Props = { clientId: string; tasks: Task[]; editable: boolean; today: string };
+/** One owner's list: Elevate's own work, or the client's action items. */
+type Props = { clientId: string; tasks: Task[]; editable: boolean; today: string; assignee?: TaskAssignee };
 type Op =
   | { kind: "toggle"; id: string; done: boolean }
   | { kind: "patch"; id: string; patch: Partial<Task> }
   | { kind: "delete"; id: string }
   | { kind: "add"; task: Task };
 
-export function TaskList({ clientId, tasks, editable, today }: Props) {
+export function TaskList({ clientId, tasks, editable, today, assignee = "elevate" }: Props) {
   const [optimistic, apply] = useOptimistic(tasks, (state: Task[], op: Op) => {
     switch (op.kind) {
       case "toggle": return state.map((t) => (t.id === op.id ? { ...t, done: op.done } : t));
@@ -42,9 +43,9 @@ export function TaskList({ clientId, tasks, editable, today }: Props) {
     setNewTitle("");
     const temp: Task = {
       id: "temp-" + Date.now(), client_id: clientId, title, notes: null, done: false, done_at: null,
-      flag: null, due_on: null, visible_to_client: true, position: Date.now(), created_at: new Date().toISOString(),
+      flag: null, due_on: null, assignee, position: Date.now(), created_at: new Date().toISOString(),
     };
-    run({ kind: "add", task: temp }, () => createTask({ client_id: clientId, title }));
+    run({ kind: "add", task: temp }, () => createTask({ client_id: clientId, title, assignee }));
   };
 
   const open = optimistic.filter((t) => !t.done);
@@ -58,12 +59,12 @@ export function TaskList({ clientId, tasks, editable, today }: Props) {
       {editable && (
         <form className="add-task" onSubmit={add}>
           <label className="sr-only" htmlFor={`new-task-${clientId}`}>New task</label>
-          <input id={`new-task-${clientId}`} className="input" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="Add a task, then press Enter" maxLength={300} />
+          <input id={`new-task-${clientId}`} className="input" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder={assignee === "client" ? "Add something the client needs to do" : "Add a task, then press Enter"} maxLength={300} />
           <button className="btn primary" type="submit" disabled={!newTitle.trim()}><Icon name="plus" size={18} /><span>Add</span></button>
         </form>
       )}
       {error && <div className="notice err" role="alert" style={{ marginBottom: 10 }}>{error}</div>}
-      {!optimistic.length && <div className="empty">No tasks yet.</div>}
+      {!optimistic.length && <div className="empty">{assignee === "client" ? "Nothing for the client to do." : "No tasks yet."}</div>}
       <ul className="task-list" aria-busy={pending}>
         {[...open, ...(showDone ? done : done.filter((t) => justDone.has(t.id)))].map((t) =>
           editing === t.id ? (
@@ -82,14 +83,18 @@ export function TaskList({ clientId, tasks, editable, today }: Props) {
                 }} />
               <div>
                 <div className="title" onDoubleClick={() => editable && setEditing(t.id)}>{t.title}</div>
-                <TaskMeta task={t} today={today} editable={editable} />
+                <TaskMeta task={t} today={today} />
               </div>
               {editable && !t.id.startsWith("temp-") && (
                 <div className="tools">
-                  <button className="icon-btn" type="button" title={t.visible_to_client ? "Shared with client. Click to hide." : "Hidden from client. Click to share."}
-                    aria-label={t.visible_to_client ? "Hide from client" : "Share with client"}
-                    onClick={() => run({ kind: "patch", id: t.id, patch: { visible_to_client: !t.visible_to_client } }, () => updateTask(t.id, { visible_to_client: !t.visible_to_client }))}>
-                    <Icon name={t.visible_to_client ? "eye" : "eyeOff"} size={18} />
+                  <button className="icon-btn" type="button"
+                    title={t.assignee === "client" ? "Move to Elevate's tasks" : "Move to the client's to-dos"}
+                    aria-label={t.assignee === "client" ? "Move to Elevate's tasks" : "Move to the client's to-dos"}
+                    onClick={() => {
+                      const next: TaskAssignee = t.assignee === "client" ? "elevate" : "client";
+                      run({ kind: "delete", id: t.id }, () => updateTask(t.id, { assignee: next }));
+                    }}>
+                    <Icon name={t.assignee === "client" ? "home" : "user"} size={18} />
                   </button>
                   <button className="icon-btn" type="button" aria-label="Edit task" title="Edit" onClick={() => setEditing(t.id)}><Icon name="edit" size={18} /></button>
                   <ConfirmDelete label={t.title} onConfirm={() => run({ kind: "delete", id: t.id }, () => deleteTask(t.id))} />
@@ -108,12 +113,11 @@ export function TaskList({ clientId, tasks, editable, today }: Props) {
   );
 }
 
-function TaskMeta({ task: t, today, editable }: { task: Task; today: string; editable: boolean }) {
+function TaskMeta({ task: t, today }: { task: Task; today: string }) {
   const overdue = !t.done && t.due_on && t.due_on < today;
   const bits: React.ReactNode[] = [];
   if (!t.done && t.flag) bits.push(<span key="f" className={`pill p-${t.flag}`}>{t.flag}</span>);
   if (t.due_on) bits.push(<span key="d" className={overdue ? "pill p-late" : ""}>{overdue ? "Overdue · " : "Due "}{fmtDate(t.due_on)}</span>);
-  if (editable && !t.visible_to_client) bits.push(<span key="v" className="pill p-hidden">Internal</span>);
   if (t.notes) bits.push(<span key="n">{t.notes}</span>);
   return bits.length ? <div className="meta">{bits}</div> : null;
 }
@@ -123,14 +127,14 @@ function TaskEditor({ task, onSave, onCancel }: { task: Task; onSave: (p: Partia
   const [flag, setFlag] = useState<TaskFlag | "">(task.flag ?? "");
   const [due, setDue] = useState(task.due_on ?? "");
   const [notes, setNotes] = useState(task.notes ?? "");
-  const [shared, setShared] = useState(task.visible_to_client);
+  const [owner, setOwner] = useState<TaskAssignee>(task.assignee);
   const id = `edit-${task.id}`;
   return (
     <li>
       <form className="task-edit" onSubmit={(e) => {
         e.preventDefault();
         if (!title.trim()) return;
-        onSave({ title: title.trim(), flag: flag || null, due_on: due || null, notes: notes.trim() || null, visible_to_client: shared });
+        onSave({ title: title.trim(), flag: flag || null, due_on: due || null, notes: notes.trim() || null, assignee: owner });
       }} onKeyDown={(e) => e.key === "Escape" && onCancel()}>
         <label className="sr-only" htmlFor={`${id}-title`}>Task</label>
         <input id={`${id}-title`} className="input" value={title} onChange={(e) => setTitle(e.target.value)} autoFocus maxLength={300} />
@@ -149,7 +153,13 @@ function TaskEditor({ task, onSave, onCancel }: { task: Task; onSave: (p: Partia
             <span>Due</span>
             <input id={`${id}-due`} type="date" className="input" value={due} onChange={(e) => setDue(e.target.value)} />
           </label>
-          <label className="toggle"><input id={`${id}-shared`} type="checkbox" checked={shared} onChange={(e) => setShared(e.target.checked)} /> Client can see this</label>
+          <label className="field" style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <span>Who</span>
+            <select id={`${id}-owner`} className="input" value={owner} onChange={(e) => setOwner(e.target.value as TaskAssignee)}>
+              <option value="elevate">Elevate</option>
+              <option value="client">Client (shows in their portal)</option>
+            </select>
+          </label>
           <span style={{ flex: 1 }} />
           <button className="btn small" type="button" onClick={onCancel}>Cancel</button>
           <button className="btn small primary" type="submit">Save</button>

@@ -13,8 +13,8 @@ const base = process.env.E2E_BASE_URL ?? "http://localhost:3000";
   await db.from("profiles").update({ client_id: "11111111-0000-4000-8000-000000000004" }).eq("email", "client@warriors.test");
 
   for (const [who, email, pages] of [
-    ["staff", "staff@elevate.test", ["/app", "/app/clients/warriors", "/app/clients/warriors?tab=analytics", "/app/tasks", "/app/billing"]],
-    ["client", "client@warriors.test", ["/portal", "/portal/results", "/portal/invoices"]],
+    ["staff", "staff@elevate.test", ["/app/clients/warriors", "/app/clients/warriors?tab=tasks"]],
+    ["client", "client@warriors.test", ["/portal", "/portal?view=invoices"]],
   ] as const) {
     for (const [label, width] of [["desk", 1320], ["phone", 390]] as const) {
       const ctx = await browser.newContext({ baseURL: base, viewport: { width, height: 900 } });

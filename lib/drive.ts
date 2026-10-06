@@ -119,3 +119,45 @@ export function kind(mime: string): "folder" | "image" | "video" | "pdf" | "doc"
   if (mime.startsWith("application/vnd.google-apps.")) return "doc";
   return "other";
 }
+
+// ---------------------------------------------------------------------------
+// Month folders: "October 2026", "Octubre 2026", "2026-10", "10 - October"…
+// ---------------------------------------------------------------------------
+const MONTH_NAMES: [number, RegExp][] = [
+  [1, /\b(jan(uary)?|ene(ro)?)\b/i], [2, /\b(feb(ruary)?|feb(rero)?)\b/i], [3, /\b(mar(ch)?|mar(zo)?)\b/i],
+  [4, /\b(apr(il)?|abr(il)?)\b/i], [5, /\b(may(o)?)\b/i], [6, /\b(june?|jun(io)?)\b/i],
+  [7, /\b(july?|jul(io)?)\b/i], [8, /\b(aug(ust)?|ago(sto)?)\b/i], [9, /\b(sep(t(ember)?)?|sep(tiembre)?|set(iembre)?)\b/i],
+  [10, /\b(oct(ober)?|oct(ubre)?)\b/i], [11, /\b(nov(ember)?|nov(iembre)?)\b/i], [12, /\b(dec(ember)?|dic(iembre)?)\b/i],
+];
+
+/** Reads a month (and year, if present) from a folder name. */
+export function monthOf(name: string): { month: number; year: number | null } | null {
+  const year = name.match(/\b(20\d{2})\b/)?.[1];
+  const iso = name.match(/\b(20\d{2})[-_. /](0?[1-9]|1[0-2])\b/);
+  if (iso) return { year: +iso[1], month: +iso[2] };
+  for (const [m, re] of MONTH_NAMES) if (re.test(name)) return { month: m, year: year ? +year : null };
+  return null;
+}
+
+/**
+ * Picks what the client sees as "this month":
+ *  1. a subfolder named for the current month, else
+ *  2. loose files at the top of the folder (newest first), else
+ *  3. the most recent month folder.
+ * Every other folder is listed as an earlier month.
+ */
+export function pickThisMonth(items: DriveFile[], today: string) {
+  const [ty, tm] = today.split("-").map(Number);
+  const folders = items.filter((f) => f.mimeType === FOLDER);
+  const files = items.filter((f) => f.mimeType !== FOLDER);
+  const dated = folders
+    .map((f) => ({ f, m: monthOf(f.name) }))
+    .map(({ f, m }) => ({ f, key: m ? (m.year ?? (m.month <= tm ? ty : ty - 1)) * 12 + m.month : -1 }));
+  const nowKey = ty * 12 + tm;
+  const current = dated.find((d) => d.key === nowKey)?.f ?? null;
+  const sorted = dated.filter((d) => d.f !== current).sort((a, b) => b.key - a.key || b.f.modifiedTime.localeCompare(a.f.modifiedTime));
+  if (current) return { folder: current, files: null, earlier: sorted.map((d) => d.f), fallback: false };
+  if (files.length) return { folder: null, files, earlier: sorted.map((d) => d.f), fallback: false };
+  const latest = sorted.find((d) => d.key > 0 && d.key < nowKey)?.f ?? null;
+  return { folder: latest, files: null, earlier: sorted.filter((d) => d.f !== latest).map((d) => d.f), fallback: Boolean(latest) };
+}

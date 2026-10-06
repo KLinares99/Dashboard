@@ -1,0 +1,127 @@
+/* Client portal. Modeled on iOS: system font, grouped inset lists,
+   one column, lots of air. Everything is scoped under .ios so the staff
+   app keeps its own look. */
+.ios {
+  --bg: #f2f2f7;
+  --card: #ffffff;
+  --label: #000000;
+  --label-2: rgba(60, 60, 67, 0.6);
+  --label-3: rgba(60, 60, 67, 0.3);
+  --sep: rgba(60, 60, 67, 0.18);
+  --fill: rgba(120, 120, 128, 0.12);
+  --tint: #2f55d4;
+  --tint-ink: #ffffff;
+  --green: #248a3d;
+  --red: #d70015;
+  --orange: #c93400;
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue", "Segoe UI", Roboto, system-ui, sans-serif;
+  min-height: 100%;
+  background: var(--bg);
+  color: var(--label);
+  font: 17px/1.35 var(--font);
+  letter-spacing: -0.022em;
+  -webkit-font-smoothing: antialiased;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .ios {
+    color-scheme: dark;
+    --bg: #000000; --card: #1c1c1e; --label: #ffffff;
+    --label-2: rgba(235, 235, 245, 0.6); --label-3: rgba(235, 235, 245, 0.3);
+    --sep: rgba(84, 84, 88, 0.6); --fill: rgba(120, 120, 128, 0.24);
+    --tint: #6f8cff; --tint-ink: #000000; --green: #30d158; --red: #ff453a; --orange: #ff9f0a;
+  }
+}
+:root[data-theme="dark"] .ios {
+  color-scheme: dark;
+  --bg: #000000; --card: #1c1c1e; --label: #ffffff;
+  --label-2: rgba(235, 235, 245, 0.6); --label-3: rgba(235, 235, 245, 0.3);
+  --sep: rgba(84, 84, 88, 0.6); --fill: rgba(120, 120, 128, 0.24);
+  --tint: #6f8cff; --tint-ink: #000000; --green: #30d158; --red: #ff453a; --orange: #ff9f0a;
+}
+
+.ios a { color: var(--tint); text-decoration: none; }
+.ios a.ios-row { color: var(--label); }
+.ios button { font: inherit; letter-spacing: inherit; }
+
+/* Bar */
+.ios-bar {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 10;
+  background: color-mix(in srgb, var(--bg) 80%, transparent);
+  backdrop-filter: saturate(180%) blur(20px); -webkit-backdrop-filter: saturate(180%) blur(20px);
+  border-bottom: 0.5px solid var(--sep);
+}
+.ios-bar-in { max-width: 680px; margin: 0 auto; padding: 10px 20px; display: flex; align-items: center; gap: 10px; min-height: 52px; }
+.ios-bar .brand-word { font-weight: 600; font-size: 17px; }
+.ios-bar .spacer { flex: 1; }
+.ios-text-btn { background: none; border: 0; color: var(--tint); font-size: 17px; padding: 6px 0; cursor: pointer; }
+
+.ios-page { max-width: 680px; margin: 0 auto; padding: 8px 20px calc(48px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: 32px; }
+
+/* Titles */
+.ios-hello { padding-top: 20px; }
+.ios-hello h1 { font-size: 34px; line-height: 1.12; font-weight: 700; letter-spacing: -0.03em; margin: 0; text-wrap: balance; }
+.ios-hello p { margin: 6px 0 0; color: var(--label-2); font-size: 17px; }
+.ios-section { display: flex; flex-direction: column; gap: 10px; }
+.ios-section-h { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 0 4px; }
+.ios-section-h h2 { font-size: 22px; font-weight: 700; letter-spacing: -0.025em; margin: 0; }
+.ios-section-h .count { color: var(--label-2); font-weight: 400; }
+.ios-section-h a { font-size: 17px; }
+.ios-foot { color: var(--label-2); font-size: 13px; padding: 0 16px; margin: 0; letter-spacing: -0.005em; }
+
+/* Grouped card + rows */
+.ios-card { background: var(--card); border-radius: 14px; overflow: hidden; }
+.ios-row { display: flex; align-items: center; gap: 14px; padding: 12px 16px; min-height: 50px; position: relative; color: var(--label); }
+.ios-row + .ios-row::before { content: ""; position: absolute; top: 0; left: 16px; right: 0; height: 0.5px; background: var(--sep); }
+.ios-row.indent + .ios-row.indent::before { left: 52px; }
+.ios-row .grow { flex: 1; min-width: 0; }
+.ios-row .sub { display: block; color: var(--label-2); font-size: 15px; margin-top: 1px; }
+.ios-row .chev { color: var(--label-3); flex: none; }
+a.ios-row:active, button.ios-row:active { background: var(--fill); }
+
+/* Invoice */
+.ios-invoice { padding: 20px 20px 16px; display: flex; flex-direction: column; gap: 4px; }
+.ios-invoice + .ios-invoice { border-top: 0.5px solid var(--sep); }
+.ios-invoice .what { color: var(--label-2); font-size: 15px; }
+.ios-invoice .amount { font-size: 40px; font-weight: 700; letter-spacing: -0.035em; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.ios-invoice .status { font-size: 15px; display: flex; align-items: center; gap: 6px; }
+.ios-invoice .status.due { color: var(--orange); }
+.ios-invoice .status.paid { color: var(--green); }
+.ios-invoice .status.late { color: var(--red); }
+.ios-btn { display: flex; align-items: center; justify-content: center; gap: 8px; height: 50px; border-radius: 12px; border: 0; background: var(--tint); color: var(--tint-ink) !important; font-size: 17px; font-weight: 600; margin-top: 12px; cursor: pointer; }
+.ios-btn:active { opacity: 0.8; }
+
+/* To-dos (Reminders style) */
+.ios-todo { display: flex; align-items: flex-start; gap: 14px; padding: 13px 16px; position: relative; }
+.ios-todo + .ios-todo::before { content: ""; position: absolute; top: 0; left: 52px; right: 0; height: 0.5px; background: var(--sep); }
+.ios-check { appearance: none; -webkit-appearance: none; flex: none; width: 22px; height: 22px; margin: 0; border-radius: 50%; border: 1.5px solid var(--label-3); background: transparent; cursor: pointer; display: grid; place-items: center; transition: background .15s, border-color .15s; }
+.ios-check:checked { background: var(--tint); border-color: var(--tint); }
+.ios-check:checked::after { content: ""; width: 10px; height: 5px; border: 2px solid var(--tint-ink); border-top: 0; border-right: 0; transform: translate(0, -1px) rotate(-45deg); }
+.ios-check:disabled { cursor: default; }
+.ios-check:focus-visible { outline: 2px solid var(--tint); outline-offset: 2px; }
+.ios-todo .t { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.ios-todo .t small { display: block; color: var(--label-2); font-size: 15px; margin-top: 2px; }
+.ios-todo.done .t { color: var(--label-2); text-decoration: line-through; text-decoration-color: var(--label-3); }
+.ios-todo .due { color: var(--orange); }
+
+/* Empty state */
+.ios-empty { padding: 28px 20px; text-align: center; color: var(--label-2); font-size: 15px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.ios-empty .glyph { width: 44px; height: 44px; border-radius: 50%; background: var(--fill); display: grid; place-items: center; color: var(--label-2); }
+.ios-empty b { color: var(--label); font-weight: 600; font-size: 17px; }
+
+/* Content grid (Photos style) */
+.ios-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2px; border-radius: 14px; overflow: hidden; background: var(--card); }
+.ios-tile { position: relative; aspect-ratio: 1; background: var(--fill); display: block; overflow: hidden; color: var(--label-2); }
+.ios-tile img { width: 100%; height: 100%; object-fit: cover; display: block; max-width: 100%; }
+.ios-tile .ph { position: absolute; inset: 0; display: grid; place-items: center; padding: 10px; text-align: center; font-size: 13px; gap: 6px; align-content: center; }
+.ios-tile .ph span { overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere; }
+.ios-tile .badge { position: absolute; left: 6px; bottom: 6px; background: rgba(0, 0, 0, 0.55); color: #fff; border-radius: 6px; padding: 2px 6px; font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 4px; }
+.ios-tile:active { opacity: 0.85; }
+
+/* Staff preview banner */
+.ios-preview { background: var(--tint); color: var(--tint-ink); text-align: center; font-size: 14px; padding: 8px 16px; }
+.ios-preview a { color: inherit; text-decoration: underline; }
+
+@media (min-width: 700px) {
+  .ios-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .ios-hello h1 { font-size: 40px; }
+}

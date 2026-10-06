@@ -18,7 +18,7 @@ export default async function ClientsPage() {
               <thead><tr><th>Client</th><th>Plan</th><th>Status</th><th>Progress</th><th className="r">Owes</th></tr></thead>
               <tbody>
                 {ws.clients.map((c) => {
-                  const p = progress(ws.tasks.filter((t) => t.client_id === c.id));
+                  const p = progress(ws.tasks.filter((t) => t.client_id === c.id && t.assignee === "elevate"));
                   const owed = unpaidCents(ws.invoices, c.id);
                   return (
                     <tr key={c.id}>

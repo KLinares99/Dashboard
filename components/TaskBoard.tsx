@@ -71,6 +71,7 @@ export function TaskBoard({ tasks, clients, today, filter }: { tasks: Task[]; cl
                     <div className="row-gap" style={{ gap: 8, justifyContent: "space-between" }}>
                       <Link className="c" href={`/app/clients/${c.slug}?tab=tasks`}><i className="dot" style={{ "--c": `var(--c-${c.color})` } as React.CSSProperties} />{c.name}</Link>
                       {!t.done && t.due_on && <span className={`pill ${overdue(t) ? "p-late" : "p-upcoming"}`}>{fmtDate(t.due_on)}</span>}
+                      {t.assignee === "client" && <span className="pill p-waiting">Client</span>}
                     </div>
                   </div>
                 );

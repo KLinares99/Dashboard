@@ -1,100 +1,137 @@
+import Link from "next/link";
 import type { ClientBundle } from "@/lib/data";
-import { progress, unpaidCents } from "@/lib/data";
-import { STATUS_LABEL, TYPE_LABEL, fmtDate, money, priceLabel } from "@/lib/format";
-import { EventRows, InvoiceRows } from "./Managers";
-import { MetricsView } from "./MetricsView";
-import { TaskList } from "./TaskList";
+import { fmtDate, money } from "@/lib/format";
+import type { Invoice } from "@/lib/types";
+import { Mark } from "./Icon";
+import { ThisMonth } from "./portal/Content";
+import { Todos } from "./portal/Todos";
 
-/**
- * What a client sees. Filters to shared rows here as well as in the database,
- * so a staff preview shows exactly the client's view.
- */
-export function clientSafe(b: ClientBundle): ClientBundle {
-  return {
-    ...b,
-    tasks: b.tasks.filter((t) => t.visible_to_client),
-    events: b.events.filter((e) => e.visible_to_client),
-    invoices: b.invoices.filter((i) => i.status !== "draft"),
-    blockers: [],
-  };
-}
-
+/** Turns *word* emphasis markup into <em>. Used by the staff client header. */
 export function Headline({ text }: { text: string }) {
   const parts = text.split(/\*(.+?)\*/g);
   return <>{parts.map((p, i) => (i % 2 ? <em key={i}>{p}</em> : p))}</>;
 }
 
-export function PortalOverview({ bundle, today }: { bundle: ClientBundle; today: string }) {
-  const b = clientSafe(bundle);
-  const c = b.client;
-  const p = progress(b.tasks);
-  const owed = unpaidCents(b.invoices);
-  const upcoming = b.events.filter((e) => !e.done && e.on_date >= today);
-  const recent = b.tasks.filter((t) => t.done && t.done_at).sort((a, z) => (a.done_at! < z.done_at! ? 1 : -1)).slice(0, 4);
+/** Only what a client should ever see, filtered here too so staff previews match exactly. */
+export function clientView(b: ClientBundle) {
+  return {
+    client: b.client,
+    todos: b.tasks.filter((t) => t.assignee === "client"),
+    invoices: b.invoices.filter((i) => i.status === "sent" || i.status === "paid"),
+  };
+}
+
+function greeting(now = new Date()) {
+  const h = Number(new Intl.DateTimeFormat("en-US", { hour: "numeric", hour12: false, timeZone: "America/New_York" }).format(now));
+  return h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
+}
+
+export function PortalBar({ signOut }: { signOut: boolean }) {
   return (
-    <>
-      <section className="hero">
-        {c.summary && <div className="meta">{c.summary}</div>}
-        <h2><Headline text={c.headline || `Welcome, *${c.name}*.`} /></h2>
-        <p>{TYPE_LABEL[c.type]} · <b>{priceLabel(c)}</b>{c.next_step ? <> · Next: {c.next_step}</> : null}</p>
-      </section>
-      <section className="tiles">
-        <div className="tile"><span className="label">Status</span><span className="v" style={{ fontSize: 26, paddingTop: 6 }}>{STATUS_LABEL[c.status === "urgent" ? "active" : c.status]}</span><span className="d">{c.services.slice(0, 2).join(" · ")}</span></div>
-        <div className="tile"><span className="label">Progress</span><span className="v">{p.done}/{p.total}</span><span className="d">{p.pct}% of tasks done</span></div>
-        <div className="tile"><span className="label">Next date</span><span className="v" style={{ fontSize: 26, paddingTop: 6 }}>{upcoming[0] ? fmtDate(upcoming[0].on_date) : "–"}</span><span className="d">{upcoming[0]?.label ?? "Nothing scheduled"}</span></div>
-        <div className={`tile ${owed ? "alert" : "good"}`}><span className="label">Balance</span><span className="v">{money(owed)}</span><span className="d">{owed ? "Due now" : "All paid. Thank you!"}</span></div>
-      </section>
-      <div className="cols">
-        <section className="panel">
-          <div className="panel-h"><span className="label">What we&apos;re working on</span><span className="num muted" style={{ fontSize: 14 }}>{p.done}/{p.total}</span></div>
-          <div className="panel-b tight"><TaskList clientId={c.id} tasks={b.tasks} editable={false} today={today} /></div>
-        </section>
-        <div className="stack">
-          <section className="panel">
-            <div className="panel-h"><span className="label">Coming up</span></div>
-            {upcoming.length ? <EventRows events={upcoming} clients={[c]} today={today} editable={false} /> : <div className="panel-b empty">No dates scheduled yet.</div>}
-          </section>
-          {recent.length > 0 && (
-            <section className="panel">
-              <div className="panel-h"><span className="label">Recently finished</span></div>
-              <div className="panel-b tight"><div className="list-rows">{recent.map((t) => <div key={t.id}><span>{t.title}</span><span className="muted" style={{ fontSize: 14, whiteSpace: "nowrap" }}>{fmtDate(t.done_at!.slice(0, 10))}</span></div>)}</div></div>
-            </section>
-          )}
-          <section className="panel">
-            <div className="panel-h"><span className="label">What&apos;s included</span></div>
-            <div className="panel-b tight"><div className="list-rows">{c.services.map((s) => <div key={s}><span>{s}</span><span className="muted">Included</span></div>)}</div></div>
-          </section>
-        </div>
+    <header className="ios-bar">
+      <div className="ios-bar-in">
+        <Mark size={28} />
+        <span className="brand-word">Elevate</span>
+        <span className="spacer" />
+        {signOut && (
+          <form action="/auth/signout" method="post"><button className="ios-text-btn" type="submit">Sign out</button></form>
+        )}
       </div>
-    </>
+    </header>
   );
 }
 
-export function PortalResults({ bundle }: { bundle: ClientBundle }) {
+function InvoiceCard({ inv, today }: { inv: Invoice; today: string }) {
+  const paid = inv.status === "paid";
+  const dueDate = inv.due_on || inv.issued_on;
+  const pastDue = !paid && dueDate != null && dueDate < today;
   return (
-    <>
-      <section className="hero"><h2>How it&apos;s <em>performing</em>.</h2><p>Numbers from your website, social accounts and Google profile, updated when Elevate uploads new reports.</p></section>
-      <MetricsView metrics={bundle.metrics} emptyText="Your first report will show up here once Elevate uploads it." />
-    </>
+    <div className="ios-invoice">
+      <span className="what">{inv.label}</span>
+      <span className="amount">{money(inv.amount_cents, { cents: inv.amount_cents % 100 !== 0 })}</span>
+      <span className={`status ${paid ? "paid" : pastDue ? "late" : "due"}`}>
+        {paid ? (
+          <>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm-1.2 14.2-4-4 1.4-1.4 2.6 2.6 5.6-5.6 1.4 1.4Z" /></svg>
+            Paid{inv.paid_on ? ` ${fmtDate(inv.paid_on, { month: "short", day: "numeric" })}` : ""}
+          </>
+        ) : (
+          <>{pastDue ? "Past due · was due" : "Due"}{dueDate ? ` ${fmtDate(dueDate, { month: "short", day: "numeric" })}` : ""}</>
+        )}
+      </span>
+      {!paid && inv.pay_url && <a className="ios-btn" href={inv.pay_url} target="_blank" rel="noopener">Pay {money(inv.amount_cents, { cents: inv.amount_cents % 100 !== 0 })}</a>}
+    </div>
   );
 }
 
-export function PortalInvoices({ bundle }: { bundle: ClientBundle }) {
-  const b = clientSafe(bundle);
-  const owed = unpaidCents(b.invoices);
-  const paid = b.invoices.filter((i) => i.status === "paid").reduce((a, i) => a + i.amount_cents, 0);
+/** Invoices due now. If nothing is due, this month's paid invoice, else a quiet "all paid" card. */
+export function InvoiceSection({ invoices, today, allHref }: { invoices: Invoice[]; today: string; allHref: string }) {
+  const due = invoices.filter((i) => i.status === "sent").sort((a, b) => (a.issued_on ?? "").localeCompare(b.issued_on ?? ""));
+  const month = today.slice(0, 7);
+  const paidThisMonth = invoices.filter((i) => i.status === "paid" && (i.paid_on ?? i.issued_on ?? "").startsWith(month));
+  const show = due.length ? due : paidThisMonth.slice(0, 1);
+  const total = due.reduce((a, i) => a + i.amount_cents, 0);
   return (
-    <>
-      <section className="hero"><h2>{owed ? <>You have <em>{money(owed)}</em> due.</> : <>You&apos;re <em>all paid up</em>.</>}</h2>
-        <p>{b.client.type === "retainer" ? <>Your plan is <b>{priceLabel(b.client)}</b>.</> : <>Project price: <b>{priceLabel(b.client)}</b>.</>} Questions about an invoice? Reply to any Elevate email.</p></section>
-      <section className="tiles" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
-        <div className={`tile ${owed ? "alert" : "good"}`}><span className="label">Balance due</span><span className="v">{money(owed)}</span><span className="d">{b.invoices.filter((i) => i.status === "sent").length} open invoice(s)</span></div>
-        <div className="tile"><span className="label">Paid to date</span><span className="v">{money(paid)}</span><span className="d">{b.invoices.filter((i) => i.status === "paid").length} invoice(s)</span></div>
+    <section className="ios-section">
+      <div className="ios-section-h">
+        <h2>{due.length > 1 ? <>Invoices due <span className="count">{money(total)}</span></> : due.length ? "Invoice due" : "Invoice"}</h2>
+        {invoices.length > 0 && <Link href={allHref}>See all</Link>}
+      </div>
+      <div className="ios-card">
+        {show.length ? show.map((i) => <InvoiceCard key={i.id} inv={i} today={today} />) : (
+          <div className="ios-empty">
+            <span className="glyph" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg></span>
+            <b>You&apos;re all paid up</b>
+            Thank you!
+          </div>
+        )}
+      </div>
+      {due.some((i) => !i.pay_url) && <p className="ios-foot">Questions about an invoice? Reply to any Elevate email.</p>}
+    </section>
+  );
+}
+
+/** The whole client home: hello, invoice, to-dos, this month's content. */
+export function ClientHome({ bundle, today, firstName, base, interactive }: {
+  bundle: ClientBundle; today: string; firstName: string | null; base: string; interactive: boolean;
+}) {
+  const v = clientView(bundle);
+  const open = v.todos.filter((t) => !t.done).length;
+  return (
+    <main className="ios-page">
+      <div className="ios-hello">
+        <h1>{greeting()}{firstName ? `, ${firstName}` : ""}</h1>
+        <p>{v.client.name} · {fmtDate(today, { month: "long", year: "numeric" })}</p>
+      </div>
+      <InvoiceSection invoices={v.invoices} today={today} allHref={`${base}${base.includes("?") ? "&" : "?"}view=invoices`} />
+      <section className="ios-section">
+        <div className="ios-section-h"><h2>Your to-dos {open > 0 && <span className="count">{open}</span>}</h2></div>
+        <Todos tasks={v.todos} today={today} interactive={interactive} />
       </section>
-      <section className="panel">
-        <div className="panel-h"><span className="label">Invoices</span></div>
-        <InvoiceRows invoices={b.invoices} clients={[b.client]} editable={false} showClient={false} />
-      </section>
-    </>
+      <ThisMonth client={v.client} today={today} base={base} />
+    </main>
+  );
+}
+
+/** Every sent or paid invoice, newest first. */
+export function AllInvoices({ bundle, back }: { bundle: ClientBundle; back: string }) {
+  const v = clientView(bundle);
+  const list = [...v.invoices].sort((a, b) => (b.issued_on ?? "").localeCompare(a.issued_on ?? ""));
+  return (
+    <main className="ios-page">
+      <div className="ios-hello" style={{ paddingTop: 8 }}>
+        <Link href={back} style={{ fontSize: 17 }}>‹ Home</Link>
+        <h1 style={{ marginTop: 10 }}>Invoices</h1>
+      </div>
+      <div className="ios-card">
+        {list.length ? list.map((i) => (
+          <div key={i.id} className="ios-row">
+            <span className="grow">{i.label}<span className="sub">{i.status === "paid" ? `Paid ${i.paid_on ? fmtDate(i.paid_on, { month: "short", day: "numeric", year: "numeric" }) : ""}` : "Due"}</span></span>
+            <span style={{ fontVariantNumeric: "tabular-nums", color: i.status === "paid" ? "var(--label-2)" : "var(--label)" }}>{money(i.amount_cents, { cents: i.amount_cents % 100 !== 0 })}</span>
+            {i.status === "sent" && i.pay_url && <a href={i.pay_url} target="_blank" rel="noopener">Pay</a>}
+          </div>
+        )) : <div className="ios-empty">No invoices yet.</div>}
+      </div>
+    </main>
   );
 }

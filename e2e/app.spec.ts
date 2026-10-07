@@ -79,6 +79,27 @@ test.describe("staff", () => {
     await expect(staff.locator(".task", { hasText: "E2E: final October carousel" })).toHaveCount(0);
   });
 
+  test("clears completed tasks in one go, and keeps open ones", async () => {
+    await staff.goto("/app/clients/warriors?tab=tasks");
+    const ours = staff.locator("section.panel", { has: staff.locator(".panel-h", { hasText: "Our tasks" }) });
+    const warriors = (await admin().from("clients").select("id").eq("slug", "warriors").single()).data!.id;
+    const count = async (done: boolean) =>
+      (await admin().from("tasks").select("id", { count: "exact", head: true }).eq("client_id", warriors).eq("assignee", "elevate").eq("done", done)).count;
+    const openBefore = await count(false);
+    expect(await count(true)).toBeGreaterThan(0);
+
+    await ours.getByRole("button", { name: /Clear \d+ completed/ }).click();
+    await ours.getByRole("button", { name: "Keep" }).click(); // changing your mind deletes nothing
+    expect(await count(true)).toBeGreaterThan(0);
+    await ours.getByRole("button", { name: /Clear \d+ completed/ }).click();
+    await ours.getByRole("button", { name: /^Delete \d+$/ }).click();
+    await expect(ours.locator(".task.done")).toHaveCount(0);
+    await expect.poll(() => count(true)).toBe(0);
+    expect(await count(false)).toBe(openBefore);
+    await staff.reload();
+    await expect(ours.getByRole("button", { name: /Clear \d+ completed/ })).toHaveCount(0);
+  });
+
   test("uploads a GA4 export and charts it", async () => {
     await staff.goto("/app/clients/warriors?tab=analytics");
     await staff.getByLabel("CSV export").setInputFiles(path.join(__dirname, "fixtures/warriors-ga4.csv"));

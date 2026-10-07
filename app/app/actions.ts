@@ -71,6 +71,17 @@ export async function deleteTask(id: string): Promise<ActionResult> {
   return { ok: true };
 }
 
+/** Deletes the given tasks, but only those that are done: a stale list can't remove open work. */
+export async function clearDoneTasks(ids: string[]): Promise<ActionResult> {
+  const parsed = z.array(uuid).min(1).max(1000).safeParse(ids);
+  if (!parsed.success) return fail("Nothing to clear.");
+  const { db } = await staffDb();
+  const { error } = await db.from("tasks").delete().in("id", parsed.data).eq("done", true);
+  if (error) return fail(error.message);
+  refresh();
+  return { ok: true };
+}
+
 // ---------------------------------------------------------------------------
 // Clients
 // ---------------------------------------------------------------------------

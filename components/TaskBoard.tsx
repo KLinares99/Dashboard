@@ -2,13 +2,15 @@
 
 import Link from "next/link";
 import { useOptimistic, useState, useTransition } from "react";
-import { createTask, updateTask } from "@/app/app/actions";
+import { clearDoneTasks, createTask, updateTask } from "@/app/app/actions";
 import { fmtDate } from "@/lib/format";
 import type { Client, Task } from "@/lib/types";
 import { Icon } from "./Icon";
+import { ClearDone } from "./TaskList";
 
 export function TaskBoard({ tasks, clients, today, filter }: { tasks: Task[]; clients: Client[]; today: string; filter: string | null }) {
-  const [items, apply] = useOptimistic(tasks, (s: Task[], p: { id: string; done: boolean }) => s.map((t) => (t.id === p.id ? { ...t, done: p.done } : t)));
+  const [items, apply] = useOptimistic(tasks, (s: Task[], p: { id: string; done: boolean } | { clear: string[] }) =>
+    "clear" in p ? s.filter((t) => !p.clear.includes(t.id)) : s.map((t) => (t.id === p.id ? { ...t, done: p.done } : t)));
   const [, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [showAllDone, setShowAllDone] = useState(false);
@@ -79,6 +81,14 @@ export function TaskBoard({ tasks, clients, today, filter }: { tasks: Task[]; cl
               {!list.length && <div className="empty" style={{ padding: 4 }}>None</div>}
               {name === "Done" && list.length > 5 && (
                 <button className="seg" type="button" style={{ justifyContent: "center" }} onClick={() => setShowAllDone((v) => !v)}>{showAllDone ? "Show fewer" : `Show all ${list.length}`}</button>
+              )}
+              {name === "Done" && list.length > 0 && (
+                <ClearDone count={list.length} onConfirm={() => start(async () => {
+                  const ids = list.map((t) => t.id);
+                  apply({ clear: ids });
+                  const r = await clearDoneTasks(ids);
+                  if (!r.ok) setError(r.error);
+                })} />
               )}
             </section>
           );

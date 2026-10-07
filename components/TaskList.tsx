@@ -1,7 +1,7 @@
 "use client";
 
 import { useOptimistic, useState, useTransition } from "react";
-import { createTask, deleteTask, updateTask } from "@/app/app/actions";
+import { clearDoneTasks, createTask, deleteTask, updateTask } from "@/app/app/actions";
 import { fmtDate } from "@/lib/format";
 import type { Task, TaskAssignee, TaskFlag } from "@/lib/types";
 import { Icon } from "./Icon";
@@ -12,6 +12,7 @@ type Op =
   | { kind: "toggle"; id: string; done: boolean }
   | { kind: "patch"; id: string; patch: Partial<Task> }
   | { kind: "delete"; id: string }
+  | { kind: "clear"; ids: string[] }
   | { kind: "add"; task: Task };
 
 export function TaskList({ clientId, tasks, editable, today, assignee = "elevate" }: Props) {
@@ -20,6 +21,7 @@ export function TaskList({ clientId, tasks, editable, today, assignee = "elevate
       case "toggle": return state.map((t) => (t.id === op.id ? { ...t, done: op.done } : t));
       case "patch": return state.map((t) => (t.id === op.id ? { ...t, ...op.patch } : t));
       case "delete": return state.filter((t) => t.id !== op.id);
+      case "clear": return state.filter((t) => !op.ids.includes(t.id));
       case "add": return [...state, op.task];
     }
   });
@@ -104,10 +106,20 @@ export function TaskList({ clientId, tasks, editable, today, assignee = "elevate
           ),
         )}
       </ul>
-      {done.length > 5 && (
-        <button className="btn small" type="button" style={{ marginTop: 10 }} onClick={() => setShowDone((v) => !v)}>
-          {showDone ? "Hide completed" : `Show all ${done.length} completed`}
-        </button>
+      {(done.length > 5 || (editable && done.length > 0)) && (
+        <div className="row-gap" style={{ marginTop: 10, gap: 8 }}>
+          {done.length > 5 && (
+            <button className="btn small" type="button" onClick={() => setShowDone((v) => !v)}>
+              {showDone ? "Hide completed" : `Show all ${done.length} completed`}
+            </button>
+          )}
+          {editable && done.length > 0 && (
+            <ClearDone count={done.length} onConfirm={() => {
+              const ids = done.filter((t) => !t.id.startsWith("temp-")).map((t) => t.id);
+              run({ kind: "clear", ids }, () => clearDoneTasks(ids));
+            }} />
+          )}
+        </div>
       )}
     </div>
   );
@@ -181,6 +193,24 @@ export function ConfirmDelete({ label, onConfirm, text = "Delete" }: { label: st
   return (
     <button className="icon-btn danger" type="button" aria-label={`${text} "${label}"`} title={text} onClick={() => setAsking(true)}>
       <Icon name="trash" size={18} />
+    </button>
+  );
+}
+
+/** "Clear 4 completed", then asks once before deleting them for good. */
+export function ClearDone({ count, onConfirm }: { count: number; onConfirm: () => void }) {
+  const [asking, setAsking] = useState(false);
+  if (asking)
+    return (
+      <span className="row-gap" style={{ gap: 6 }}>
+        <span className="muted" style={{ fontSize: 14 }}>Delete {count} completed for good?</span>
+        <button className="btn small danger" type="button" onClick={() => { setAsking(false); onConfirm(); }}>Delete {count}</button>
+        <button className="btn small" type="button" onClick={() => setAsking(false)}>Keep</button>
+      </span>
+    );
+  return (
+    <button className="btn small" type="button" onClick={() => setAsking(true)}>
+      <Icon name="trash" size={16} />Clear {count} completed
     </button>
   );
 }

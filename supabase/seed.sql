@@ -19,10 +19,6 @@ insert into public.clients (id, slug, name, contact_name, contact_email, color, 
  '12-module WARRIORS workbook + Skool community. Launched Sept 13. Free tier feeds a paid masterclass and 1:1 coaching.',
  'From workbook to *movement*.', 'Start the next content cycle Mon Oct 5 (current batch runs through Oct 9)',
  array['Skool','Workbook','Social content'], 'https://app.notion.com/p/3da98dba651b8140a436ff4f5b2431f3'),
-('11111111-0000-4000-8000-000000000005', 'landscaping', 'Landscaping Website', 'HVQ Landscaping (Hector), confirm', null, 'teal', 'project', 60000, 'waiting',
- 'Website build with gallery and 4–5 pages. Wufoo intake form is ready in EN + ES.',
- 'Waiting on the *intake form*.', 'Send the Wufoo intake form and follow up until it comes back',
- array['Website build','Gallery','4–5 pages','EN + ES intake'], 'https://app.notion.com/p/2a598dba651b80d580bbe5ddfcd94631'),
 ('11111111-0000-4000-8000-000000000006', 'elevate', 'Elevate BSI (in-house)', 'Kevin', null, 'green', 'internal', 0, 'active',
  'September feed is scheduled. October batch is in progress.', 'Our own feed, *October* next.', 'Finish October content batch after client items',
  array['Social','Reels','SEO'], null);
@@ -55,10 +51,6 @@ insert into public.tasks (client_id, title, done, flag, assignee, position) valu
 ('11111111-0000-4000-8000-000000000004', 'Strategy call (Sat Sept 12)', true, null, 'elevate', 6),
 ('11111111-0000-4000-8000-000000000004', 'Collect unpaid retainer (Sept balance + Oct)', false, 'urgent', 'elevate', 7),
 ('11111111-0000-4000-8000-000000000004', 'Rebatch content starting Mon Oct 5', false, null, 'elevate', 8),
-('11111111-0000-4000-8000-000000000005', 'Build Wufoo intake form (EN + ES)', true, null, 'elevate', 1),
-('11111111-0000-4000-8000-000000000005', 'Send form to client + follow up', false, 'urgent', 'elevate', 2),
-('11111111-0000-4000-8000-000000000005', 'Create $600 invoice in QuickBooks', false, null, 'elevate', 3),
-('11111111-0000-4000-8000-000000000005', 'Build site: gallery + 4–5 pages', false, null, 'elevate', 4),
 ('11111111-0000-4000-8000-000000000006', 'September feed scheduled', true, null, 'elevate', 1),
 ('11111111-0000-4000-8000-000000000006', 'Batch October content', false, null, 'elevate', 2),
 ('11111111-0000-4000-8000-000000000006', 'October reels: ElevenLabs VO → Higgsfield B-roll → schedule Thursdays', false, null, 'elevate', 3),
@@ -73,8 +65,7 @@ insert into public.tasks (client_id, title, done, flag, assignee, position) valu
 ('11111111-0000-4000-8000-000000000001', 'Create a Mailchimp account', false, null, 'client', 103),
 ('11111111-0000-4000-8000-000000000004', 'Confirm the second R in WARRIORS', false, null, 'client', 104),
 ('11111111-0000-4000-8000-000000000004', 'Tell us what the $19.99 / $120.99 price is for', false, null, 'client', 105),
-('11111111-0000-4000-8000-000000000004', 'Set the masterclass price', false, null, 'client', 106),
-('11111111-0000-4000-8000-000000000005', 'Fill out the website intake form', false, null, 'client', 107);
+('11111111-0000-4000-8000-000000000004', 'Set the masterclass price', false, null, 'client', 106);
 
 insert into public.events (client_id, on_date, label, done) values
 ('11111111-0000-4000-8000-000000000002', '2026-09-14', 'NYTI launch + on-site Skool setup', true),
@@ -90,12 +81,13 @@ insert into public.invoices (client_id, label, amount_cents, status, issued_on, 
 ('11111111-0000-4000-8000-000000000003', 'Escuela de Música enrollment campaign', 40000, 'paid', '2026-08-23', '2026-08-23', '2026-08-23', 40000),
 ('11111111-0000-4000-8000-000000000004', 'Recording session', 15000, 'paid', '2026-09-12', '2026-09-12', '2026-09-19', 15000),
 ('11111111-0000-4000-8000-000000000004', 'August 2026 retainer', 44400, 'sent', '2026-08-01', '2026-08-01', null, 0),
-('11111111-0000-4000-8000-000000000004', 'September 2026 retainer', 44400, 'sent', '2026-09-01', '2026-09-01', null, 0),
-('11111111-0000-4000-8000-000000000005', 'Website build', 60000, 'draft', null, null, null, 0);
+('11111111-0000-4000-8000-000000000004', 'September 2026 retainer', 44400, 'sent', '2026-09-01', '2026-09-01', null, 0);
 
 insert into public.prospects (name, detail, note, status) values
 ('Starlese', 'Century 21 agent, North Carolina', 'Sample package sent, no reply. Text follow-up parked.', 'parked'),
-('JPM Solution Corp.', 'Milton & Alicia Monroy', 'Asked for a social media + branding quote (Mar 2026).', 'parked');
+('JPM Solution Corp.', 'Milton & Alicia Monroy', 'Asked for a social media + branding quote (Mar 2026).', 'parked'),
+('Iglesia La Misión Internacional', 'New website', 'Proposal pending: create and send.', 'urgent'),
+('New York Theological Institute', 'New website (existing client: NYTI)', 'Proposal pending: create and send.', 'urgent');
 
 -- Forged course approval for Warriors (same as supabase/snippets/warriors-forged-approval.sql)
 -- Forged course approval for Rev. Robert Lindenberg (The Warriors Project).

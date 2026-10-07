@@ -35,7 +35,7 @@ test.describe("staff", () => {
   test("lands on Pulse with every client", async () => {
     await expect(staff).toHaveURL(/\/app$/);
     await expect(staff.getByRole("heading", { level: 1, name: "Pulse" })).toBeVisible();
-    for (const name of ["Relevate Solutions", "NYTI", "The Warriors Project", "Landscaping Website"]) {
+    for (const name of ["Relevate Solutions", "NYTI", "The Warriors Project"]) {
       await expect(staff.locator(".client-row", { hasText: name })).toBeVisible();
     }
     // Same numbers as Rob's portal: $244 left on September + $444 October
@@ -239,7 +239,7 @@ test.describe("client", () => {
     await expect(client.getByRole("heading", { level: 1, name: "Invoices" })).toBeVisible();
     await expect(client.locator(".ios-row", { hasText: "August 2026 retainer" })).toContainText("Paid");
     await expect(client.locator(".ios-row", { hasText: "QuickBooks #1094" })).toContainText("$644");
-    await expect(client.getByText("Website build")).toHaveCount(0); // another client's draft
+    await expect(client.getByText("NYTI enrollment campaign")).toHaveCount(0); // another client's invoice
   });
 
   test("sees this month's posts from Drive, filtered by type", async () => {

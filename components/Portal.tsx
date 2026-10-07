@@ -3,6 +3,7 @@ import type { ClientBundle } from "@/lib/data";
 import { fmtDate, money } from "@/lib/format";
 import type { Invoice } from "@/lib/types";
 import { Mark } from "./Icon";
+import { ApprovalCard } from "./portal/Approval";
 import { ThisMonth } from "./portal/Content";
 import { Todos } from "./portal/Todos";
 
@@ -18,6 +19,8 @@ export function clientView(b: ClientBundle) {
     client: b.client,
     todos: b.tasks.filter((t) => t.assignee === "client"),
     invoices: b.invoices.filter((i) => i.status === "sent" || i.status === "paid"),
+    approvals: [...b.approvals].sort((x, y) => (x.status === y.status ? 0 : x.status === "open" ? -1 : 1)),
+    approvalItems: b.approvalItems,
   };
 }
 
@@ -103,6 +106,10 @@ export function ClientHome({ bundle, today, firstName, base, interactive }: {
         <h1>{greeting()}{firstName ? `, ${firstName}` : ""}</h1>
         <p>{v.client.name} · {fmtDate(today, { month: "long", year: "numeric" })}</p>
       </div>
+      {v.approvals.map((a) => (
+        <ApprovalCard key={a.id} approval={a} items={v.approvalItems.filter((i) => i.approval_id === a.id)}
+          href={`${base}${base.includes("?") ? "&" : "?"}approval=${a.id}`} />
+      ))}
       <InvoiceSection invoices={v.invoices} today={today} allHref={`${base}${base.includes("?") ? "&" : "?"}view=invoices`} />
       <section className="ios-section">
         <div className="ios-section-h"><h2>Your to-dos {open > 0 && <span className="count">{open}</span>}</h2></div>

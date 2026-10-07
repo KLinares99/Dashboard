@@ -388,3 +388,83 @@ export async function deleteUpload(id: string): Promise<ActionResult> {
   refresh();
   return { ok: true };
 }
+
+// ---------------------------------------------------------------------------
+// Approvals
+// ---------------------------------------------------------------------------
+const hex = z.string().regex(/^#[0-9a-fA-F]{6}$/, "Colors are hex codes like #14213d.");
+const DecisionInput = z.object({
+  label: z.string().trim().min(1, "Every decision needs a name.").max(120),
+  tag: z.string().trim().max(40).optional().transform((v) => v || null),
+  detail: z.string().trim().max(2000).optional().transform((v) => v || null),
+  kind: z.enum(["approve", "choice", "text", "date"]),
+  options: z.array(z.object({
+    label: z.string().trim().min(1).max(120),
+    detail: z.string().trim().max(600).optional(),
+    recommended: z.boolean().optional(),
+  })).max(8).default([]),
+});
+const ApprovalInput = z.object({
+  client_id: uuid,
+  eyebrow: optText,
+  title: z.string().trim().min(1, "Give the approval a title.").max(80),
+  subtitle: optText,
+  summary: optText,
+  card_color: hex.default("#14213d"),
+  accent_color: hex.default("#c9a04a"),
+  decisions: z.array(DecisionInput).min(1, "Add at least one decision.").max(30),
+});
+
+export async function createApproval(input: z.input<typeof ApprovalInput>): Promise<ActionResult & { id?: string }> {
+  const parsed = ApprovalInput.safeParse(input);
+  if (!parsed.success) return fail(parsed.error.issues[0].message);
+  const bad = parsed.data.decisions.find((d) => d.kind === "choice" && d.options.length < 2);
+  if (bad) return fail(`"${bad.label}" is a choice, so it needs at least two options.`);
+  const { db } = await staffDb();
+  const { decisions, ...head } = parsed.data;
+  const { data: a, error } = await db.from("approvals").insert(head).select("id").single();
+  if (error || !a) return fail(error?.message ?? "Couldn't create the approval.");
+  const { error: itemErr } = await db.from("approval_items").insert(
+    decisions.map((d, i) => ({ ...d, options: d.kind === "choice" ? d.options : [], approval_id: a.id, position: i + 1 })),
+  );
+  if (itemErr) {
+    await db.from("approvals").delete().eq("id", a.id);
+    return fail(itemErr.message);
+  }
+  refresh();
+  return { ok: true, id: a.id, message: "Approval created. It's now on the client's home page." };
+}
+
+/** Records a PDF the browser already uploaded to documents/<client>/<approval>/<file>. */
+export async function setApprovalPdf(approvalId: string, path: string | null, name: string | null): Promise<ActionResult> {
+  if (!uuid.safeParse(approvalId).success) return fail("Unknown approval.");
+  const { db } = await staffDb();
+  const { data: a } = await db.from("approvals").select("client_id, pdf_path").eq("id", approvalId).single();
+  if (!a) return fail("Unknown approval.");
+  if (path && !path.startsWith(`${a.client_id}/${approvalId}/`)) return fail("That file isn't in this approval's folder.");
+  if (a.pdf_path && a.pdf_path !== path) await db.storage.from("documents").remove([a.pdf_path]);
+  const { error } = await db.from("approvals").update({ pdf_path: path, pdf_name: name?.slice(0, 200) ?? null }).eq("id", approvalId);
+  if (error) return fail(error.message);
+  refresh();
+  return { ok: true, message: path ? "PDF attached." : "PDF removed." };
+}
+
+export async function reopenApproval(id: string): Promise<ActionResult> {
+  if (!uuid.safeParse(id).success) return fail("Unknown approval.");
+  const { db } = await staffDb();
+  const { error } = await db.from("approvals").update({ status: "open", signed_name: null, signed_at: null, signed_by: null }).eq("id", id);
+  if (error) return fail(error.message);
+  refresh();
+  return { ok: true, message: "Reopened. The client can change answers and sign again." };
+}
+
+export async function deleteApproval(id: string): Promise<ActionResult> {
+  if (!uuid.safeParse(id).success) return fail("Unknown approval.");
+  const { db } = await staffDb();
+  const { data: a } = await db.from("approvals").select("pdf_path").eq("id", id).single();
+  const { error } = await db.from("approvals").delete().eq("id", id);
+  if (error) return fail(error.message);
+  if (a?.pdf_path) await db.storage.from("documents").remove([a.pdf_path]);
+  refresh();
+  return { ok: true };
+}

@@ -1,7 +1,7 @@
 -- Row level security tests. Run with: npm run db:test
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(29);
+select plan(38);
 
 -- Users: one staff, one Warriors client, one Relevate client, one unlinked client.
 -- Test-only emails, so this runs no matter which logins already exist.
@@ -21,6 +21,11 @@ select is((select client_id from public.profiles where id = 'aaaaaaaa-0000-4000-
 -- Link clients the way the invite action does (service role).
 update public.profiles set client_id = '11111111-0000-4000-8000-000000000004' where id = 'aaaaaaaa-0000-4000-8000-000000000002';
 update public.profiles set client_id = '11111111-0000-4000-8000-000000000001' where id = 'aaaaaaaa-0000-4000-8000-000000000003';
+
+-- An approval for another client, to prove it stays out of reach.
+insert into public.approvals (id, client_id, title) values ('bbbbbbbb-0000-4000-8000-000000000001', '11111111-0000-4000-8000-000000000001', 'Relevate approval');
+insert into public.approval_items (id, approval_id, label) values ('bbbbbbbb-0000-4000-8000-000000000002', 'bbbbbbbb-0000-4000-8000-000000000001', 'Relevate item');
+select set_config('test.forged', (select id::text from public.approvals where title = 'Forged'), true);
 
 -- Total as the database owner sees it, to compare against below.
 select set_config('test.total_clients', (select count(*) from public.clients)::text, true);
@@ -67,9 +72,23 @@ select is(public.is_staff(), false, 'client cannot promote themselves');
 update public.profiles set client_id = '11111111-0000-4000-8000-000000000001' where id = 'aaaaaaaa-0000-4000-8000-000000000002';
 select is(public.my_client_id(), '11111111-0000-4000-8000-000000000004'::uuid, 'client cannot switch clients');
 
+-- Approvals
+select is((select count(*)::int from public.approvals), 1, 'client sees only their own approval');
+select is(public.answer_approval_item('bbbbbbbb-0000-4000-8000-000000000002', '{"approved": true}'), false, 'client cannot answer another client''s approval');
+update public.approval_items set response = '{"approved": true}';
+reset role;
+select is((select count(*)::int from public.approval_items where response is not null), 0, 'client cannot write answers directly');
+set local role authenticated;
+select is(public.sign_approval(current_setting('test.forged')::uuid, 'Rob L'), false, 'cannot sign before every decision is answered');
+select is((select bool_and(public.answer_approval_item(id, '{"approved": true, "choice": "Forged", "text": "x", "note": "ok"}')) from public.approval_items where approval_id = current_setting('test.forged')::uuid), true, 'client answers each decision');
+select is(public.sign_approval(current_setting('test.forged')::uuid, 'Rev. Robert Lindenberg'), true, 'then signs');
+select is((select status::text from public.approvals where id = current_setting('test.forged')::uuid), 'signed', 'and the approval is signed');
+select is(public.answer_approval_item((select id from public.approval_items where approval_id = current_setting('test.forged')::uuid limit 1), '{"approved": false}'), false, 'a signed approval is locked');
+
 -- ---------- Relevate client ----------
 set local request.jwt.claims = '{"sub":"aaaaaaaa-0000-4000-8000-000000000003","role":"authenticated"}';
 select is((select count(*)::int from public.invoices), 0, 'Relevate cannot see Warriors invoices');
+select is((select count(*)::int from public.approvals where title = 'Forged'), 0, 'Relevate cannot see the Warriors approval');
 
 -- ---------- Unlinked client ----------
 set local request.jwt.claims = '{"sub":"aaaaaaaa-0000-4000-8000-000000000004","role":"authenticated"}';

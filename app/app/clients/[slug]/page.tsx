@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ApprovalsManager } from "@/components/ApprovalsManager";
 import { DriveSection } from "@/components/DriveSection";
 import { Icon } from "@/components/Icon";
 import {
@@ -13,7 +14,7 @@ import { loadClient, loadClientLogins, loadWorkspace, progress, unpaidCents } fr
 import { STATUS_LABEL, TYPE_LABEL, money, priceLabel, todayISO } from "@/lib/format";
 
 const TABS = [
-  ["overview", "Overview"], ["tasks", "Tasks"], ["content", "Content"], ["analytics", "Analytics"],
+  ["overview", "Overview"], ["tasks", "Tasks"], ["approvals", "Approvals"], ["content", "Content"], ["analytics", "Analytics"],
   ["billing", "Billing"], ["access", "Portal access"], ["settings", "Settings"],
 ] as const;
 type Tab = (typeof TABS)[number][0];
@@ -106,6 +107,10 @@ export default async function ClientPage({ params, searchParams }: {
               <div className="panel-b tight"><TaskList key="client" clientId={c.id} tasks={theirs} editable today={today} assignee="client" /></div>
             </section>
           </div>
+        )}
+
+        {tab === "approvals" && (
+          <ApprovalsManager clientId={c.id} slug={c.slug} approvals={bundle.approvals} items={bundle.approvalItems} />
         )}
 
         {tab === "content" && (

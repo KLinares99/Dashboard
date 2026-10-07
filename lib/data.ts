@@ -1,6 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
-import type { AnalyticsUpload, Client, EventItem, Invoice, Metric, Prospect, Task } from "@/lib/types";
+import type { AnalyticsUpload, Approval, ApprovalItem, Client, EventItem, Invoice, Metric, Prospect, Task } from "@/lib/types";
 
 /** Everything the staff views need. RLS still applies (staff see all). */
 export async function loadWorkspace() {
@@ -30,13 +30,18 @@ export async function loadClient(by: { slug?: string; id?: string }) {
   const { data: client } = await q.maybeSingle();
   if (!client) return null;
   const c = client as Client;
-  const [tasks, events, invoices, uploads, metrics] = await Promise.all([
+  const [tasks, events, invoices, uploads, metrics, approvals] = await Promise.all([
     supabase.from("tasks").select("*").eq("client_id", c.id).order("done").order("position"),
     supabase.from("events").select("*").eq("client_id", c.id).order("on_date"),
     supabase.from("invoices").select("*").eq("client_id", c.id).order("issued_on", { ascending: false, nullsFirst: true }),
     supabase.from("analytics_uploads").select("*").eq("client_id", c.id).order("created_at", { ascending: false }),
     supabase.from("metrics").select("metric, on_date, value, source").eq("client_id", c.id).order("on_date").limit(20000),
+    supabase.from("approvals").select("*").eq("client_id", c.id).order("created_at", { ascending: false }),
   ]);
+  const approvalIds = (approvals.data ?? []).map((a: { id: string }) => a.id);
+  const approvalItems = approvalIds.length
+    ? await supabase.from("approval_items").select("*").in("approval_id", approvalIds).order("position")
+    : { data: [] };
   return {
     client: c,
     tasks: (tasks.data ?? []) as Task[],
@@ -44,6 +49,8 @@ export async function loadClient(by: { slug?: string; id?: string }) {
     invoices: (invoices.data ?? []) as Invoice[],
     uploads: (uploads.data ?? []) as AnalyticsUpload[],
     metrics: (metrics.data ?? []) as Metric[],
+    approvals: (approvals.data ?? []) as Approval[],
+    approvalItems: (approvalItems.data ?? []) as ApprovalItem[],
   };
 }
 export type ClientBundle = NonNullable<Awaited<ReturnType<typeof loadClient>>>;

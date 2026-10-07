@@ -108,6 +108,15 @@ test.describe("staff", () => {
     await expect(staff.getByRole("heading", { level: 1, name: "E2E Bakery" })).toBeVisible();
   });
 
+  test("attaches a PDF to the Forged approval", async () => {
+    await staff.goto("/app/clients/warriors?tab=approvals");
+    const panel = staff.locator("section.panel", { hasText: "Forged" }).first();
+    await expect(panel.getByText("0 of 8 answered")).toBeVisible();
+    await panel.locator('input[type="file"]').setInputFiles({ name: "Forged - Course Approval.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n") });
+    await expect(panel.getByRole("status")).toContainText("PDF attached");
+    await expect(panel.getByText("Forged - Course Approval.pdf")).toBeVisible();
+  });
+
   test("invites the Warriors contact", async () => {
     await staff.goto("/app/clients/warriors?tab=access");
     await staff.getByLabel("Email").fill(CLIENT);
@@ -165,7 +174,52 @@ test.describe("client", () => {
     await expect(staff.locator(".task.done", { hasText: "E2E: approve October posts" })).toBeVisible();
   });
 
+  test("opens the Forged card, answers every decision and signs", async () => {
+    await client.goto("/portal");
+    const card = client.getByRole("link", { name: /Forged: needs your approval/ });
+    await expect(card).toContainText("Needs your approval · 8 decisions");
+    await card.click();
+    await expect(client.getByRole("heading", { level: 1, name: "Forged" })).toBeVisible();
+    await expect(client.getByRole("link", { name: "Download the full PDF" })).toHaveAttribute("href", /documents/);
+    const sign = client.getByRole("button", { name: "Approve and sign" });
+    await expect(sign).toBeDisabled();
+
+    const decision = (name: string) => client.getByRole("article", { name });
+    await decision("Course name").getByRole("radio", { name: /^Forged/ }).click();
+    await expect(decision("Course name").getByText("Answered")).toBeVisible();
+    await decision("Price").getByLabel("Price").fill("Monthly, $29 public, founding members free");
+    await decision("Price").getByRole("button", { name: "Save" }).click();
+    await decision("Access for the 14").getByRole("button", { name: "Approve" }).click();
+    await decision("Pace").getByRole("radio", { name: /One module a week/ }).click();
+    await decision("Phases").getByRole("button", { name: "Request a change" }).click();
+    await decision("Phases").getByLabel("What should change?").fill("Call Phase III \"The Battle\"");
+    await decision("Phases").getByRole("button", { name: "Send change request" }).click();
+    await decision("Recording load").getByRole("radio", { name: /Lean/ }).click();
+    await decision("Weekly call").getByRole("radio", { name: /Thursday/ }).click();
+    await decision("Launch date").getByLabel("Launch date").fill("2026-11-12");
+    await decision("Launch date").getByRole("button", { name: "Save" }).click();
+    await expect(client.getByText("8 of 8")).toBeVisible();
+
+    await client.getByLabel("Full name").fill("Rev. Robert Lindenberg");
+    await sign.click();
+    await expect(client.getByText("Approved by Rev. Robert Lindenberg")).toBeVisible();
+
+    await client.goto("/portal");
+    await expect(client.getByRole("link", { name: /Forged: approved/ })).toBeVisible();
+  });
+
+  test("staff see Rob's answers", async () => {
+    await staff.goto("/app/clients/warriors?tab=approvals");
+    const panel = staff.locator("section.panel", { hasText: "Forged" }).first();
+    await expect(panel.getByText("Signed by Rev. Robert Lindenberg")).toBeVisible();
+    await expect(panel.locator("tr", { hasText: "Course name" })).toContainText("Forged (recommended)");
+    await expect(panel.locator("tr", { hasText: "Phases" })).toContainText('Change requested: Call Phase III "The Battle"');
+    await expect(panel.locator("tr", { hasText: "Launch date" })).toContainText("November 12, 2026");
+    await expect(panel.locator("tr", { hasText: "Recording load" })).toContainText("Lean");
+  });
+
   test("sees all invoices", async () => {
+    await client.goto("/portal");
     await client.getByRole("link", { name: "See all" }).click();
     await expect(client.getByRole("heading", { level: 1, name: "Invoices" })).toBeVisible();
     await expect(client.locator(".ios-row", { hasText: "August 2026 retainer" })).toContainText("Paid");

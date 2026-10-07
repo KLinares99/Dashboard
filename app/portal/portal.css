@@ -125,3 +125,59 @@ a.ios-row:active, button.ios-row:active { background: var(--fill); }
   .ios-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .ios-hello h1 { font-size: 40px; }
 }
+
+/* ---------- Approvals ---------- */
+/* The cover card follows the document's own cover: deep navy, gold eyebrow,
+   a big serif title, a short rule, and a gold edge along the bottom. Colors
+   come from the approval (--ap-bg, --ap-accent) so other clients can differ. */
+.ap-cover {
+  --ap-bg: #14213d; --ap-accent: #c9a04a;
+  display: flex; flex-direction: column; gap: 10px;
+  background: var(--ap-bg); color: #fff; border-radius: 16px; padding: 22px 22px 20px;
+  border-bottom: 4px solid var(--ap-accent); text-decoration: none;
+  box-shadow: 0 1px 2px rgba(0,0,0,.06), 0 8px 24px rgba(20,33,61,.18);
+}
+a.ap-cover { color: #fff; }
+a.ap-cover:active { transform: scale(0.99); }
+.ap-eyebrow { color: var(--ap-accent); font-size: 11px; font-weight: 600; letter-spacing: .2em; text-transform: uppercase; }
+.ap-title { font-family: "Cormorant Garamond", "Iowan Old Style", "Palatino", Georgia, serif; font-weight: 600; font-size: 46px; line-height: 1; letter-spacing: .04em; text-transform: uppercase; margin: 2px 0 0; }
+.ap-sub { font-size: 12px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; color: rgba(255,255,255,.92); }
+.ap-rule { width: 40px; height: 1px; background: rgba(255,255,255,.6); margin: 6px 0 4px; }
+.ap-summary { font-family: "Cormorant Garamond", "Iowan Old Style", Georgia, serif; font-size: 19px; line-height: 1.4; color: rgba(255,255,255,.92); margin: 0; letter-spacing: 0; }
+.ap-foot { display: flex; align-items: center; gap: 8px; font-size: 15px; color: rgba(255,255,255,.85); margin-top: 4px; }
+.ap-foot .grow { flex: 1; }
+.ap-progress { height: 4px; border-radius: 4px; background: rgba(255,255,255,.18); overflow: hidden; }
+.ap-progress i { display: block; height: 100%; background: var(--ap-accent); border-radius: 4px; }
+.ap-download { display: inline-flex; align-items: center; gap: 8px; align-self: flex-start; margin-top: 6px; border: 1px solid var(--ap-accent); color: var(--ap-accent) !important; border-radius: 999px; padding: 8px 16px; font-size: 15px; font-weight: 600; }
+.ap-big .ap-title { font-size: 58px; }
+
+/* Decision cards */
+.dc { background: var(--card); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+.dc-h { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.dc-label { font-size: 13px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
+.dc-tag { font-size: 11px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--orange); }
+.dc-state { margin-left: auto; font-size: 13px; color: var(--green); display: inline-flex; align-items: center; gap: 4px; }
+.dc-state.todo { color: var(--label-2); }
+.dc-detail { color: var(--label-2); font-size: 15px; margin: 0; }
+.dc-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.dc-btn { flex: 1; min-width: 130px; height: 44px; border-radius: 11px; border: 0; background: var(--fill); color: var(--label); font-weight: 600; font-size: 16px; cursor: pointer; }
+.dc-btn.on { background: var(--tint); color: var(--tint-ink); }
+.dc-btn:disabled { opacity: .6; cursor: default; }
+.dc-opts { border-radius: 12px; overflow: hidden; background: var(--bg); }
+.dc-opt { display: flex; align-items: flex-start; gap: 12px; width: 100%; text-align: left; border: 0; background: transparent; padding: 12px 14px; position: relative; cursor: pointer; color: var(--label); }
+.dc-opt + .dc-opt::before { content: ""; position: absolute; top: 0; left: 14px; right: 0; height: .5px; background: var(--sep); }
+.dc-opt .grow { flex: 1; min-width: 0; }
+.dc-opt b { font-weight: 600; }
+.dc-opt small { display: block; color: var(--label-2); font-size: 14px; margin-top: 2px; }
+.dc-opt .rec { font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--orange); margin-left: 6px; }
+.dc-opt .tick { width: 22px; flex: none; color: var(--tint); margin-top: 1px; }
+.dc-opt:disabled { cursor: default; }
+.dc-field { width: 100%; border: 0; border-radius: 11px; background: var(--bg); color: var(--label); padding: 12px 14px; font: inherit; font-size: 16px; resize: vertical; }
+.dc-field:focus { outline: 2px solid var(--tint); outline-offset: 0; }
+.dc-answer { font-size: 15px; background: var(--bg); border-radius: 11px; padding: 10px 14px; white-space: pre-wrap; }
+.dc-err { color: var(--red); font-size: 14px; margin: 0; }
+.sign { background: var(--card); border-radius: 14px; padding: 18px 16px; display: flex; flex-direction: column; gap: 12px; }
+.sign h3 { margin: 0; font-size: 20px; font-weight: 700; letter-spacing: -0.02em; }
+.sign p { margin: 0; color: var(--label-2); font-size: 15px; }
+.sign .done { display: flex; align-items: center; gap: 10px; color: var(--green); font-weight: 600; }
+.ios-btn:disabled { opacity: .4; cursor: default; }

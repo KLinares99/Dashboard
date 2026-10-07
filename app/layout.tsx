@@ -7,6 +7,7 @@ import "@fontsource/jost/latin-500.css";
 import "@fontsource/jost/latin-600.css";
 import "@fontsource/jetbrains-mono/latin-500.css";
 import "@fontsource/jetbrains-mono/latin-600.css";
+import "@fontsource/cormorant-garamond/latin-600.css";
 import "./globals.css";
 
 export const metadata: Metadata = {

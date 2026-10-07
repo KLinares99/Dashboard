@@ -53,3 +53,16 @@ export type AnalyticsUpload = {
   row_count: number; date_from: string | null; date_to: string | null; created_at: string;
 };
 export type Metric = { metric: string; on_date: string; value: number; source: string };
+
+export type DecisionKind = "approve" | "choice" | "text" | "date";
+export type DecisionOption = { label: string; detail?: string; recommended?: boolean };
+export type DecisionResponse = { approved?: boolean; choice?: string; text?: string; note?: string };
+export type Approval = {
+  id: string; client_id: string; eyebrow: string | null; title: string; subtitle: string | null; summary: string | null;
+  card_color: string; accent_color: string; pdf_path: string | null; pdf_name: string | null;
+  status: "open" | "signed"; signed_name: string | null; signed_at: string | null; created_at: string;
+};
+export type ApprovalItem = {
+  id: string; approval_id: string; position: number; label: string; tag: string | null; detail: string | null;
+  kind: DecisionKind; options: DecisionOption[]; response: DecisionResponse | null; responded_at: string | null;
+};

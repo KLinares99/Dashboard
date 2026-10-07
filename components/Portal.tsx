@@ -101,8 +101,8 @@ export function InvoiceSection({ invoices, today, allHref }: { invoices: Invoice
 }
 
 /** The whole client home: hello, invoice, to-dos, this month's content. */
-export function ClientHome({ bundle, today, firstName, base, interactive }: {
-  bundle: ClientBundle; today: string; firstName: string | null; base: string; interactive: boolean;
+export function ClientHome({ bundle, today, firstName, base, interactive, month, type }: {
+  bundle: ClientBundle; today: string; firstName: string | null; base: string; interactive: boolean; month?: string; type?: string;
 }) {
   const v = clientView(bundle);
   const open = v.todos.filter((t) => !t.done).length;
@@ -121,7 +121,7 @@ export function ClientHome({ bundle, today, firstName, base, interactive }: {
         <div className="ios-section-h"><h2>Your to-dos {open > 0 && <span className="count">{open}</span>}</h2></div>
         <Todos tasks={v.todos} today={today} interactive={interactive} />
       </section>
-      <ThisMonth client={v.client} today={today} base={base} />
+      <ThisMonth client={v.client} today={today} base={base} month={month} type={type} />
     </main>
   );
 }

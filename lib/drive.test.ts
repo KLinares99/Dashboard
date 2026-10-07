@@ -57,27 +57,3 @@ describe("listFolder", async () => {
   });
 });
 
-describe("pickThisMonth", async () => {
-  const { monthOf, pickThisMonth } = await import("./drive");
-  const folder = (id: string, name: string) => ({ id, name, mimeType: "application/vnd.google-apps.folder", modifiedTime: "2026-10-01T00:00:00Z" });
-  const file = (id: string, name: string) => ({ id, name, mimeType: "image/png", modifiedTime: "2026-10-01T00:00:00Z" });
-
-  it("reads month folder names in English and Spanish", () => {
-    expect(monthOf("October 2026")).toEqual({ month: 10, year: 2026 });
-    expect(monthOf("Octubre 2026")).toEqual({ month: 10, year: 2026 });
-    expect(monthOf("2026-09")).toEqual({ month: 9, year: 2026 });
-    expect(monthOf("Sept")).toEqual({ month: 9, year: null });
-    expect(monthOf("Brand kit")).toBeNull();
-  });
-  it("prefers the current month's folder", () => {
-    const r = pickThisMonth([folder("a", "September 2026"), folder("b", "October 2026"), file("c", "logo.png")], "2026-10-06");
-    expect(r.folder?.id).toBe("b");
-    expect(r.earlier.map((f) => f.id)).toEqual(["a"]);
-  });
-  it("falls back to loose files, then to the latest month", () => {
-    expect(pickThisMonth([folder("a", "September 2026"), file("c", "post.png")], "2026-10-06").files?.[0].id).toBe("c");
-    const r = pickThisMonth([folder("a", "August 2026"), folder("b", "September 2026")], "2026-10-06");
-    expect(r.folder?.id).toBe("b");
-    expect(r.fallback).toBe(true);
-  });
-});

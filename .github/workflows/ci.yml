@@ -41,7 +41,8 @@ jobs:
         run: |
           npx supabase db reset
           set -a; . ./.env.local; set +a
-          npx next start -p 3000 &
+          node e2e/fake-drive.mjs &
+          DRIVE_API_BASE=http://127.0.0.1:4555/drive/v3 DRIVE_TEST_TOKEN=test npx next start -p 3000 &
           npx wait-on -t 60000 http://localhost:3000/login
           E2E_BASE_URL=http://localhost:3000 npx playwright test
       - uses: actions/upload-artifact@v4

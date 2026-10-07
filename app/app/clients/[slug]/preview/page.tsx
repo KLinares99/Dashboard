@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AllInvoices, ClientHome, PortalBar } from "@/components/Portal";
 import { ApprovalView } from "@/components/portal/Approval";
-import { FolderView } from "@/components/portal/Content";
+import { FolderView, PostView, withParams } from "@/components/portal/Content";
 import { loadClient } from "@/lib/data";
 import { todayISO } from "@/lib/format";
 import "@/app/portal/portal.css";
@@ -11,7 +11,7 @@ export const metadata = { title: "Client preview" };
 
 /** Staff see exactly the client's page, with a banner. To-dos can't be ticked here. */
 export default async function PreviewPage({ params, searchParams }: {
-  params: Promise<{ slug: string }>; searchParams: Promise<{ folder?: string; view?: string; approval?: string }>;
+  params: Promise<{ slug: string }>; searchParams: Promise<{ folder?: string; view?: string; approval?: string; post?: string; month?: string; type?: string }>;
 }) {
   const [{ slug }, sp] = await Promise.all([params, searchParams]);
   const bundle = await loadClient({ slug });
@@ -27,8 +27,9 @@ export default async function PreviewPage({ params, searchParams }: {
       {sp.approval && bundle.approvals.some((a) => a.id === sp.approval) ? (
         <ApprovalView approval={bundle.approvals.find((a) => a.id === sp.approval)!} items={bundle.approvalItems.filter((i) => i.approval_id === sp.approval)} back={base} interactive={false} />
       ) : sp.view === "invoices" ? <AllInvoices bundle={bundle} back={base} />
-        : sp.folder ? <main className="ios-page"><FolderView client={bundle.client} folderId={sp.folder} back={base} /></main>
-        : <ClientHome bundle={bundle} today={todayISO()} firstName={firstName} base={base} interactive={false} />}
+        : sp.post ? <main className="ios-page"><PostView client={bundle.client} postId={sp.post} back={withParams(base, { month: sp.month, type: sp.type }) + "#content"} today={todayISO()} /></main>
+        : sp.folder ? <main className="ios-page"><FolderView client={bundle.client} folderId={sp.folder} back={withParams(base, { month: sp.month })} /></main>
+        : <ClientHome bundle={bundle} today={todayISO()} firstName={firstName} base={withParams(base, { month: sp.month })} interactive={false} month={sp.month} type={sp.type} />}
     </div>
   );
 }

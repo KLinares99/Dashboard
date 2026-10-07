@@ -242,6 +242,33 @@ test.describe("client", () => {
     await expect(client.getByText("Website build")).toHaveCount(0); // another client's draft
   });
 
+  test("sees this month's posts from Drive, filtered by type", async () => {
+    // e2e/fake-drive.mjs serves Rob's real layout: October Statics / Reels / Carousels, one folder per carousel
+    const db = admin();
+    await db.from("clients").update({ drive_folder_id: "fake0001xxxxxxxxxxxx" }).eq("slug", "warriors");
+    try {
+      await client.goto("/portal");
+      const grid = client.locator(".post-grid");
+      await expect(grid.locator(".post-tile")).toHaveCount(12);
+      await client.getByRole("link", { name: /^Carousels/ }).click();
+      await expect(grid.locator(".post-tile")).toHaveCount(5);
+      await grid.locator(".post-tile", { hasText: "What You Won't Say Out Loud" }).click();
+      await expect(client.getByRole("heading", { level: 1, name: "What You Won't Say Out Loud" })).toBeVisible();
+      await expect(client.locator(".post-slides img")).toHaveCount(7);
+      await expect(client.locator(".post-caption")).toContainText("You don't have to carry it alone");
+      await client.getByRole("link", { name: "‹ Back" }).click();
+      await client.getByRole("link", { name: /^Reels/ }).click();
+      await expect(grid.locator(".post-tile")).toHaveCount(2);
+      await grid.locator(".post-tile").first().click();
+      await expect(client.locator(".post-video video")).toHaveAttribute("poster", /thumb=1/);
+      await client.goto("/portal");
+      await client.getByRole("link", { name: /September 2026/ }).click();
+      await expect(grid.locator(".post-tile")).toHaveCount(1);
+    } finally {
+      await db.from("clients").update({ drive_folder_id: null }).eq("slug", "warriors");
+    }
+  });
+
   test("can't open staff pages or other clients", async () => {
     await client.goto("/app");
     await expect(client).toHaveURL(/\/portal$/);

@@ -36,9 +36,13 @@ test.describe("staff", () => {
     await expect(staff).toHaveURL(/\/app$/);
     await expect(staff.getByRole("heading", { level: 1, name: "Pulse" })).toBeVisible();
     for (const name of ["Relevate Solutions", "NYTI", "The Warriors Project", "Landscaping Website"]) {
-      await expect(staff.locator(".roster-row", { hasText: name })).toBeVisible();
+      await expect(staff.locator(".client-row", { hasText: name })).toBeVisible();
     }
-    await expect(staff.locator(".tile", { hasText: "Unpaid" })).toContainText("$688");
+    // Same numbers as Rob's portal: $244 left on September + $444 October
+    await expect(staff.locator(".tile", { hasText: "Owed to you" })).toContainText("$688");
+    await expect(staff.locator(".client-row", { hasText: "The Warriors Project" })).toContainText("$688 owed");
+    await expect(staff.locator(".panel", { hasText: "Recent payments" })).toContainText("$644");
+    await expect(staff.locator(".tile", { hasText: "Waiting on approval" })).toContainText("Forged");
   });
 
   test("adds, edits, completes and deletes a task", async () => {

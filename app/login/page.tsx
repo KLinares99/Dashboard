@@ -24,7 +24,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
       <section className="login-art">
         <div className="brand"><Mark /><div><div className="brand-name">Elevate</div><div className="brand-sub">BUSINESS<br />SOLUTIONS</div></div></div>
         <h1>Your brand, <em>in one place.</em></h1>
-        <p style={{ color: "var(--side-muted)", maxWidth: "40ch", margin: 0 }}>
+        <p style={{ color: "rgba(255,255,255,.82)", maxWidth: "40ch", margin: 0 }}>
           Progress, content, results and invoices for every Elevate client.
         </p>
       </section>

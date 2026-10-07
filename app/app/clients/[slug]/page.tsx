@@ -11,7 +11,7 @@ import { Headline } from "@/components/Portal";
 import { TopBar } from "@/components/Shell";
 import { TaskList } from "@/components/TaskList";
 import { loadClient, loadClientLogins, loadWorkspace, progress, unpaidCents } from "@/lib/data";
-import { STATUS_LABEL, TYPE_LABEL, money, priceLabel, todayISO } from "@/lib/format";
+import { STATUS_LABEL, TYPE_LABEL, fmtDate, money, priceLabel, todayISO } from "@/lib/format";
 import { owedOn } from "@/lib/types";
 
 const TABS = [
@@ -136,7 +136,7 @@ export default async function ClientPage({ params, searchParams }: {
             <section className="tiles" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
               <div className="tile"><span className="label">Plan</span><span className="v">{priceLabel(c)}</span><span className="d">{TYPE_LABEL[c.type]}</span></div>
               <div className={`tile ${owed ? "alert" : "good"}`}><span className="label">Unpaid</span><span className="v">{money(owed)}</span><span className="d">{owed ? "Sent, not paid" : "All clear"}</span></div>
-              <div className="tile"><span className="label">Paid to date</span><span className="v">{money(invoices.reduce((a, i) => a + (i.status === "void" ? 0 : i.paid_cents), 0))}</span><span className="d">{bundle.payments.length ? `${bundle.payments.length} payment(s) recorded` : `${invoices.filter((i) => i.status === "paid").length} invoice(s) paid`}</span></div>
+              <div className="tile"><span className="label">Paid to date</span><span className="v">{money(invoices.reduce((a, i) => a + (i.status === "void" ? 0 : i.paid_cents), 0))}</span><span className="d">Across all invoices{bundle.payments.length ? ` · last payment ${money(bundle.payments[0].amount_cents)} on ${fmtDate(bundle.payments[0].paid_on)}` : ""}</span></div>
             </section>
             <section className="panel">
               <div className="panel-h"><span className="label">Invoices</span><span className="muted" style={{ fontSize: 14 }}>Drafts stay hidden from the client.</span></div>

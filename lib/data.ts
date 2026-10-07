@@ -6,19 +6,23 @@ import type { AnalyticsUpload, Approval, ApprovalItem, Client, EventItem, Invoic
 /** Everything the staff views need. RLS still applies (staff see all). */
 export async function loadWorkspace() {
   const supabase = await createClient();
-  const [clients, tasks, events, invoices] = await Promise.all([
+  const [clients, tasks, events, invoices, payments, approvals] = await Promise.all([
     supabase.from("clients").select("*").eq("archived", false).order("created_at"),
     supabase.from("tasks").select("*").order("position"),
     supabase.from("events").select("*").order("on_date"),
     supabase.from("invoices").select("*").order("issued_on", { ascending: true, nullsFirst: false }),
+    supabase.from("payments").select("*").order("paid_on", { ascending: false }).limit(50),
+    supabase.from("approvals").select("*").order("created_at", { ascending: false }),
   ]);
-  for (const r of [clients, tasks, events, invoices]) if (r.error) throw new Error(r.error.message);
+  for (const r of [clients, tasks, events, invoices, payments, approvals]) if (r.error) throw new Error(r.error.message);
   const activeIds = new Set((clients.data as Client[]).map((c) => c.id));
   return {
     clients: clients.data as Client[],
     tasks: (tasks.data as Task[]).filter((t) => activeIds.has(t.client_id)),
     events: (events.data as EventItem[]).filter((e) => activeIds.has(e.client_id)),
     invoices: (invoices.data as Invoice[]).filter((i) => activeIds.has(i.client_id)),
+    payments: (payments.data as Payment[]).filter((p) => activeIds.has(p.client_id)),
+    approvals: (approvals.data as Approval[]).filter((a) => activeIds.has(a.client_id)),
   };
 }
 export type Workspace = Awaited<ReturnType<typeof loadWorkspace>>;

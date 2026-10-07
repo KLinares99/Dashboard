@@ -11,7 +11,7 @@ export default async function BillingPage() {
   const mrr = paying.filter((c) => c.type === "retainer").reduce((a, c) => a + c.price_cents, 0);
   const owed = unpaidCents(ws.invoices);
   const owing = new Set(ws.invoices.filter((i) => i.status === "sent").map((i) => i.client_id)).size;
-  const paid = ws.invoices.filter((i) => i.status === "paid").reduce((a, i) => a + i.amount_cents, 0);
+  const paid = ws.invoices.reduce((a, i) => a + (i.status === "void" ? 0 : i.paid_cents), 0);
   const drafts = ws.invoices.filter((i) => i.status === "draft").reduce((a, i) => a + i.amount_cents, 0);
   const sorted = [...ws.invoices].sort((a, b) => {
     const rank = { sent: 0, draft: 1, paid: 2, void: 3 } as const;

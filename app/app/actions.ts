@@ -220,7 +220,7 @@ export async function addInvoice(input: z.input<typeof InvoiceInput>): Promise<A
   const { db } = await staffDb();
   const { amount, ...rest } = parsed.data;
   const paid_on = rest.status === "paid" ? rest.issued_on ?? new Date().toISOString().slice(0, 10) : null;
-  const { error } = await db.from("invoices").insert({ ...rest, amount_cents: amount, paid_on });
+  const { error } = await db.from("invoices").insert({ ...rest, amount_cents: amount, paid_on, paid_cents: rest.status === "paid" ? amount : 0 });
   if (error) return fail(error.message);
   refresh();
   return { ok: true };
@@ -230,7 +230,10 @@ export async function setInvoiceStatus(id: string, status: "draft" | "sent" | "p
   if (!uuid.safeParse(id).success || !["draft", "sent", "paid", "void"].includes(status)) return fail("Unknown invoice.");
   const { db } = await staffDb();
   const today = new Date().toISOString().slice(0, 10);
-  const patch = status === "paid" ? { status, paid_on: today } : { status, paid_on: null };
+  const { data: inv } = await db.from("invoices").select("amount_cents").eq("id", id).single();
+  if (!inv) return fail("Unknown invoice.");
+  // Marking paid settles the rest; undoing clears what was applied.
+  const patch = status === "paid" ? { status, paid_on: today, paid_cents: inv.amount_cents } : { status, paid_on: null, paid_cents: 0 };
   const { error } = await db.from("invoices").update(patch).eq("id", id);
   if (error) return fail(error.message);
   refresh();
@@ -467,4 +470,56 @@ export async function deleteApproval(id: string): Promise<ActionResult> {
   if (a?.pdf_path) await db.storage.from("documents").remove([a.pdf_path]);
   refresh();
   return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// Payments
+// ---------------------------------------------------------------------------
+const PaymentInput = z.object({
+  client_id: uuid,
+  amount: dollars,
+  paid_on: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Pick the date it was paid."),
+  method: optText,
+  reference: optText,
+});
+
+/**
+ * Records money received and applies it to the client's unpaid invoices,
+ * oldest first. Part of an invoice can be paid; it turns "paid" once covered.
+ */
+export async function recordPayment(input: z.input<typeof PaymentInput>): Promise<ActionResult> {
+  const parsed = PaymentInput.safeParse(input);
+  if (!parsed.success) return fail(parsed.error.issues[0].message);
+  const { me, db } = await staffDb();
+  const { amount, ...rest } = parsed.data;
+  if (amount <= 0) return fail("Enter an amount above $0.");
+
+  const { data: open } = await db.from("invoices").select("id, label, amount_cents, paid_cents, issued_on")
+    .eq("client_id", rest.client_id).eq("status", "sent").order("issued_on", { ascending: true, nullsFirst: false });
+  const owed = (open ?? []).reduce((a, i) => a + i.amount_cents - i.paid_cents, 0);
+  if (!owed) return fail("This client has no unpaid invoices to apply a payment to.");
+  if (amount > owed) return fail(`That's more than the ${(owed / 100).toLocaleString("en-US", { style: "currency", currency: "USD" })} they owe. Add the invoice first, then record the payment.`);
+
+  const { error } = await db.from("payments").insert({ ...rest, amount_cents: amount, created_by: me.id });
+  if (error) return fail(error.message);
+
+  let left = amount;
+  const applied: string[] = [];
+  for (const inv of open ?? []) {
+    if (!left) break;
+    const due = inv.amount_cents - inv.paid_cents;
+    const take = Math.min(due, left);
+    if (!take) continue;
+    left -= take;
+    const full = take === due;
+    const { error: upErr } = await db.from("invoices").update({
+      paid_cents: inv.paid_cents + take,
+      ...(full ? { status: "paid", paid_on: rest.paid_on } : {}),
+    }).eq("id", inv.id);
+    if (upErr) return fail(`Payment saved, but applying it to ${inv.label} failed: ${upErr.message}`);
+    applied.push(full ? `${inv.label} paid in full` : `$${(take / 100).toFixed(2)} toward ${inv.label}`);
+  }
+  refresh();
+  const remaining = owed - amount;
+  return { ok: true, message: `Recorded. ${applied.join("; ")}. Still owed: ${(remaining / 100).toLocaleString("en-US", { style: "currency", currency: "USD" })}.` };
 }

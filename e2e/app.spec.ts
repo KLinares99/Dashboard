@@ -38,7 +38,7 @@ test.describe("staff", () => {
     for (const name of ["Relevate Solutions", "NYTI", "The Warriors Project", "Landscaping Website"]) {
       await expect(staff.locator(".roster-row", { hasText: name })).toBeVisible();
     }
-    await expect(staff.locator(".tile", { hasText: "Unpaid" })).toContainText("$888");
+    await expect(staff.locator(".tile", { hasText: "Unpaid" })).toContainText("$688");
   });
 
   test("adds, edits, completes and deletes a task", async () => {
@@ -91,11 +91,22 @@ test.describe("staff", () => {
     await expect(staff.locator(".notice.err")).toContainText("date column");
   });
 
-  test("marks an invoice paid", async () => {
+  test("shows a part-paid invoice and records a payment oldest-first", async () => {
     await staff.goto("/app/clients/warriors?tab=billing");
-    const aug = staff.locator("tr", { hasText: "August 2026 retainer" });
-    await aug.getByRole("button", { name: "Mark paid" }).click();
-    await expect(aug.locator(".pill")).toHaveText("Paid");
+    const sep = staff.locator("tr", { hasText: "September 2026 retainer" });
+    await expect(sep.locator(".pill")).toHaveText("Part paid");
+    await expect(sep).toContainText("$200.00 paid · $244.00 left");
+    await expect(staff.locator("tr", { hasText: "QuickBooks #1094" })).toContainText("$644");
+    // Too much is refused
+    await staff.getByLabel("Amount received ($)").fill("1000");
+    await staff.getByRole("button", { name: "Record payment" }).click();
+    await expect(staff.locator(".notice.err")).toContainText("more than the $688.00 they owe");
+    // $244 clears September
+    await staff.getByLabel("Amount received ($)").fill("244");
+    await staff.getByLabel("Reference (optional)").fill("Check 1001");
+    await staff.getByRole("button", { name: "Record payment" }).click();
+    await expect(staff.getByRole("status")).toContainText("September 2026 retainer paid in full");
+    await expect(sep.locator(".pill")).toHaveText("Paid");
     await expect(staff.locator(".tile", { hasText: "Unpaid" })).toContainText("$444");
   });
 
@@ -148,10 +159,10 @@ test.describe("client", () => {
     await expect(client).toHaveURL(/\/portal$/);
     await expect(client.getByRole("heading", { level: 1, name: /Good (morning|afternoon|evening)/ })).toBeVisible();
     await expect(client.getByText(/The Warriors Project ·/)).toBeVisible();
-    // Invoice due (August was marked paid by staff above)
+    // Invoice due (Aug and Sep are paid after the payments above)
     const invoice = client.locator(".ios-invoice");
     await expect(invoice).toHaveCount(1);
-    await expect(invoice).toContainText("September 2026 retainer");
+    await expect(invoice).toContainText("October 2026 retainer");
     await expect(invoice).toContainText("$444");
     // Their own action items only
     await expect(client.getByText("Set the masterclass price")).toBeVisible();
@@ -223,6 +234,7 @@ test.describe("client", () => {
     await client.getByRole("link", { name: "See all" }).click();
     await expect(client.getByRole("heading", { level: 1, name: "Invoices" })).toBeVisible();
     await expect(client.locator(".ios-row", { hasText: "August 2026 retainer" })).toContainText("Paid");
+    await expect(client.locator(".ios-row", { hasText: "QuickBooks #1094" })).toContainText("$644");
     await expect(client.getByText("Website build")).toHaveCount(0); // another client's draft
   });
 

@@ -1,6 +1,7 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
-import type { AnalyticsUpload, Approval, ApprovalItem, Client, EventItem, Invoice, Metric, Prospect, Task } from "@/lib/types";
+import { owedOn } from "@/lib/types";
+import type { AnalyticsUpload, Approval, ApprovalItem, Client, EventItem, Invoice, Metric, Payment, Prospect, Task } from "@/lib/types";
 
 /** Everything the staff views need. RLS still applies (staff see all). */
 export async function loadWorkspace() {
@@ -30,13 +31,14 @@ export async function loadClient(by: { slug?: string; id?: string }) {
   const { data: client } = await q.maybeSingle();
   if (!client) return null;
   const c = client as Client;
-  const [tasks, events, invoices, uploads, metrics, approvals] = await Promise.all([
+  const [tasks, events, invoices, uploads, metrics, approvals, payments] = await Promise.all([
     supabase.from("tasks").select("*").eq("client_id", c.id).order("done").order("position"),
     supabase.from("events").select("*").eq("client_id", c.id).order("on_date"),
     supabase.from("invoices").select("*").eq("client_id", c.id).order("issued_on", { ascending: false, nullsFirst: true }),
     supabase.from("analytics_uploads").select("*").eq("client_id", c.id).order("created_at", { ascending: false }),
     supabase.from("metrics").select("metric, on_date, value, source").eq("client_id", c.id).order("on_date").limit(20000),
     supabase.from("approvals").select("*").eq("client_id", c.id).order("created_at", { ascending: false }),
+    supabase.from("payments").select("*").eq("client_id", c.id).order("paid_on", { ascending: false }),
   ]);
   const approvalIds = (approvals.data ?? []).map((a: { id: string }) => a.id);
   const approvalItems = approvalIds.length
@@ -51,6 +53,7 @@ export async function loadClient(by: { slug?: string; id?: string }) {
     metrics: (metrics.data ?? []) as Metric[],
     approvals: (approvals.data ?? []) as Approval[],
     approvalItems: (approvalItems.data ?? []) as ApprovalItem[],
+    payments: (payments.data ?? []) as Payment[],
   };
 }
 export type ClientBundle = NonNullable<Awaited<ReturnType<typeof loadClient>>>;
@@ -69,7 +72,7 @@ export async function loadClientLogins(clientId: string) {
 
 // ---------- Derived numbers ----------
 export const unpaidCents = (invoices: Invoice[], clientId?: string) =>
-  invoices.filter((i) => i.status === "sent" && (!clientId || i.client_id === clientId)).reduce((a, i) => a + i.amount_cents, 0);
+  invoices.filter((i) => !clientId || i.client_id === clientId).reduce((a, i) => a + owedOn(i), 0);
 
 export function progress(tasks: Task[]) {
   const done = tasks.filter((t) => t.done).length;

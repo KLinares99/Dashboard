@@ -4,7 +4,7 @@ import { ApprovalsManager } from "@/components/ApprovalsManager";
 import { DriveSection } from "@/components/DriveSection";
 import { Icon } from "@/components/Icon";
 import {
-  AddEventForm, AddInvoiceForm, ArchiveClient, ClientAccess, ClientForm, EventRows, InvoiceRows, QuickStatus, UploadAnalytics,
+  AddEventForm, AddInvoiceForm, ArchiveClient, ClientAccess, PaymentRows, RecordPayment, ClientForm, EventRows, InvoiceRows, QuickStatus, UploadAnalytics,
 } from "@/components/Managers";
 import { MetricsView } from "@/components/MetricsView";
 import { Headline } from "@/components/Portal";
@@ -12,6 +12,7 @@ import { TopBar } from "@/components/Shell";
 import { TaskList } from "@/components/TaskList";
 import { loadClient, loadClientLogins, loadWorkspace, progress, unpaidCents } from "@/lib/data";
 import { STATUS_LABEL, TYPE_LABEL, money, priceLabel, todayISO } from "@/lib/format";
+import { owedOn } from "@/lib/types";
 
 const TABS = [
   ["overview", "Overview"], ["tasks", "Tasks"], ["approvals", "Approvals"], ["content", "Content"], ["analytics", "Analytics"],
@@ -70,7 +71,7 @@ export default async function ClientPage({ params, searchParams }: {
               <div className="tile"><span className="label">Status</span><span className="v" style={{ fontSize: 24, paddingTop: 8 }}><span className={`pill p-${c.status}`} style={{ fontSize: 14 }}>{STATUS_LABEL[c.status]}</span></span><span className="d">{c.services.slice(0, 2).join(" · ") || " "}</span></div>
               <div className="tile"><span className="label">Progress</span><span className="v">{p.done}/{p.total}</span><span className="d">{p.pct}% of tasks done</span></div>
               <div className={`tile ${flagged.length ? "alert" : "good"}`}><span className="label">Needs you</span><span className="v">{flagged.length}</span><span className="d">{flagged.length ? "urgent, blocked or overdue" : "Nothing flagged"}</span></div>
-              <Link href={`${base}?tab=billing`} className={`tile ${owed ? "alert" : ""}`} style={{ textDecoration: "none" }}><span className="label">{owed ? "Owes" : "Balance"}</span><span className="v">{money(owed)}</span><span className="d">{owed ? `${invoices.filter((i) => i.status === "sent").length} unpaid invoice(s)` : "Paid up"}</span></Link>
+              <Link href={`${base}?tab=billing`} className={`tile ${owed ? "alert" : ""}`} style={{ textDecoration: "none" }}><span className="label">{owed ? "Owes" : "Balance"}</span><span className="v">{money(owed)}</span><span className="d">{owed ? `${invoices.filter((i) => owedOn(i) > 0).length} unpaid invoice(s)` : "Paid up"}</span></Link>
             </section>
             <div className="cols">
               <div className="stack">
@@ -135,12 +136,17 @@ export default async function ClientPage({ params, searchParams }: {
             <section className="tiles" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
               <div className="tile"><span className="label">Plan</span><span className="v">{priceLabel(c)}</span><span className="d">{TYPE_LABEL[c.type]}</span></div>
               <div className={`tile ${owed ? "alert" : "good"}`}><span className="label">Unpaid</span><span className="v">{money(owed)}</span><span className="d">{owed ? "Sent, not paid" : "All clear"}</span></div>
-              <div className="tile"><span className="label">Paid to date</span><span className="v">{money(invoices.filter((i) => i.status === "paid").reduce((a, i) => a + i.amount_cents, 0))}</span><span className="d">{invoices.filter((i) => i.status === "paid").length} invoice(s)</span></div>
+              <div className="tile"><span className="label">Paid to date</span><span className="v">{money(invoices.reduce((a, i) => a + (i.status === "void" ? 0 : i.paid_cents), 0))}</span><span className="d">{bundle.payments.length ? `${bundle.payments.length} payment(s) recorded` : `${invoices.filter((i) => i.status === "paid").length} invoice(s) paid`}</span></div>
             </section>
             <section className="panel">
               <div className="panel-h"><span className="label">Invoices</span><span className="muted" style={{ fontSize: 14 }}>Drafts stay hidden from the client.</span></div>
               <InvoiceRows invoices={invoices} clients={[c]} editable showClient={false} />
               <details className="drawer"><summary>+ Add an invoice</summary><div className="panel-b"><AddInvoiceForm clients={[c]} fixedClientId={c.id} defaultAmount={c.type === "retainer" ? c.price_cents : undefined} /></div></details>
+            </section>
+            <section className="panel">
+              <div className="panel-h"><span className="label">Payments received</span></div>
+              <PaymentRows payments={bundle.payments} />
+              <details className="drawer" open={owed > 0}><summary>+ Record a payment</summary><div className="panel-b"><RecordPayment clientId={c.id} owed={owed} /></div></details>
             </section>
           </>
         )}

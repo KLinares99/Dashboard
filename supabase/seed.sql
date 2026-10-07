@@ -53,7 +53,7 @@ insert into public.tasks (client_id, title, done, flag, assignee, position) valu
 ('11111111-0000-4000-8000-000000000004', 'Content batched through Oct 9', true, null, 'elevate', 4),
 ('11111111-0000-4000-8000-000000000004', 'Men''s fellowship meeting recorded', true, null, 'elevate', 5),
 ('11111111-0000-4000-8000-000000000004', 'Strategy call (Sat Sept 12)', true, null, 'elevate', 6),
-('11111111-0000-4000-8000-000000000004', 'Collect unpaid retainer (Aug + Sept)', false, 'urgent', 'elevate', 7),
+('11111111-0000-4000-8000-000000000004', 'Collect unpaid retainer (Sept balance + Oct)', false, 'urgent', 'elevate', 7),
 ('11111111-0000-4000-8000-000000000004', 'Rebatch content starting Mon Oct 5', false, null, 'elevate', 8),
 ('11111111-0000-4000-8000-000000000005', 'Build Wufoo intake form (EN + ES)', true, null, 'elevate', 1),
 ('11111111-0000-4000-8000-000000000005', 'Send form to client + follow up', false, 'urgent', 'elevate', 2),
@@ -85,13 +85,13 @@ insert into public.events (client_id, on_date, label, done) values
 ('11111111-0000-4000-8000-000000000001', '2026-10-19', 'Book Relevate Oct 24–31', false),
 ('11111111-0000-4000-8000-000000000001', '2026-10-23', 'Relevate schedule ends', false);
 
-insert into public.invoices (client_id, label, amount_cents, status, issued_on, due_on, paid_on) values
-('11111111-0000-4000-8000-000000000002', 'NYTI enrollment campaign', 40000, 'paid', '2026-08-23', '2026-08-23', '2026-08-23'),
-('11111111-0000-4000-8000-000000000003', 'Escuela de Música enrollment campaign', 40000, 'paid', '2026-08-23', '2026-08-23', '2026-08-23'),
-('11111111-0000-4000-8000-000000000004', 'Recording session', 15000, 'paid', '2026-09-12', '2026-09-12', '2026-09-19'),
-('11111111-0000-4000-8000-000000000004', 'August 2026 retainer', 44400, 'sent', '2026-08-01', '2026-08-01', null),
-('11111111-0000-4000-8000-000000000004', 'September 2026 retainer', 44400, 'sent', '2026-09-01', '2026-09-01', null),
-('11111111-0000-4000-8000-000000000005', 'Website build', 60000, 'draft', null, null, null);
+insert into public.invoices (client_id, label, amount_cents, status, issued_on, due_on, paid_on, paid_cents) values
+('11111111-0000-4000-8000-000000000002', 'NYTI enrollment campaign', 40000, 'paid', '2026-08-23', '2026-08-23', '2026-08-23', 40000),
+('11111111-0000-4000-8000-000000000003', 'Escuela de Música enrollment campaign', 40000, 'paid', '2026-08-23', '2026-08-23', '2026-08-23', 40000),
+('11111111-0000-4000-8000-000000000004', 'Recording session', 15000, 'paid', '2026-09-12', '2026-09-12', '2026-09-19', 15000),
+('11111111-0000-4000-8000-000000000004', 'August 2026 retainer', 44400, 'sent', '2026-08-01', '2026-08-01', null, 0),
+('11111111-0000-4000-8000-000000000004', 'September 2026 retainer', 44400, 'sent', '2026-09-01', '2026-09-01', null, 0),
+('11111111-0000-4000-8000-000000000005', 'Website build', 60000, 'draft', null, null, null, 0);
 
 insert into public.prospects (name, detail, note, status) values
 ('Starlese', 'Century 21 agent, North Carolina', 'Sample package sent, no reply. Text follow-up parked.', 'parked'),
@@ -152,3 +152,49 @@ from a, (values
    'A date is needed before November content is written. October posts work without one.',
    'date', '[]')
 ) as v(position, label, tag, detail, kind, options);
+
+-- Robert's Oct 6 payment (same as supabase/snippets/warriors-payment-2026-10-06.sql)
+-- Robert / The Warriors Project: retainer for Aug, Sep, Oct ($444 each = $1,332).
+-- Paid $644 on Oct 6, 2026 (QuickBooks #1094, Apple Pay), applied oldest first:
+--   August   $444 → paid in full
+--   September $200 of $444 → $244 still owed
+--   October  $0 of $444   → $444 still owed
+-- Balance after this payment: $688.
+-- Run once in Supabase → SQL Editor. Safe to run again.
+
+-- 1. Undo the earlier "October paid" entry, if that snippet was run.
+delete from public.invoices i using public.clients c
+where c.id = i.client_id and c.slug = 'warriors' and i.label = 'October 2026 retainer (QuickBooks #1094)';
+
+-- 2. The three monthly invoices, $444 each.
+insert into public.invoices (client_id, label, amount_cents, status, issued_on, due_on)
+select c.id, m.label, 44400, 'sent', m.d::date, m.d::date
+from public.clients c,
+     (values ('August 2026 retainer', '2026-08-01'), ('September 2026 retainer', '2026-09-01'), ('October 2026 retainer', '2026-10-01')) as m(label, d)
+where c.slug = 'warriors'
+  and not exists (select 1 from public.invoices i where i.client_id = c.id and i.label = m.label);
+
+-- 3. Record the payment once.
+insert into public.payments (client_id, amount_cents, paid_on, method, reference)
+select c.id, 64400, '2026-10-06', 'Apple Pay', 'QuickBooks #1094'
+from public.clients c
+where c.slug = 'warriors'
+  and not exists (select 1 from public.payments p where p.client_id = c.id and p.reference = 'QuickBooks #1094');
+
+-- 4. Apply it: August in full, $200 to September, nothing yet to October.
+update public.invoices i set amount_cents = 44400, paid_cents = 44400, status = 'paid', paid_on = '2026-10-06'
+from public.clients c where c.id = i.client_id and c.slug = 'warriors' and i.label = 'August 2026 retainer';
+update public.invoices i set amount_cents = 44400, paid_cents = 20000, status = 'sent', paid_on = null
+from public.clients c where c.id = i.client_id and c.slug = 'warriors' and i.label = 'September 2026 retainer';
+update public.invoices i set amount_cents = 44400, paid_cents = 0, status = 'sent', paid_on = null
+from public.clients c where c.id = i.client_id and c.slug = 'warriors' and i.label = 'October 2026 retainer';
+
+-- 5. Check: should show August paid, September $244 left, October $444 left; total $688.
+select i.label,
+       to_char(i.amount_cents / 100.0, 'FM$999,990.00') as amount,
+       to_char(i.paid_cents / 100.0, 'FM$999,990.00') as paid,
+       to_char((i.amount_cents - i.paid_cents) / 100.0, 'FM$999,990.00') as still_owed,
+       case when i.status = 'paid' then 'PAID' when i.paid_cents > 0 then 'PART PAID' else 'UNPAID' end as status
+from public.invoices i join public.clients c on c.id = i.client_id
+where c.slug = 'warriors' and i.label like '%2026 retainer'
+order by i.issued_on;

@@ -2,12 +2,12 @@
 
 import { useActionState, useState, useTransition } from "react";
 import {
-  type ActionResult, addEvent, addInvoice, addProspect, archiveClient, createClientRecord,
+  type ActionResult, addEvent, recordPayment, addInvoice, addProspect, archiveClient, createClientRecord,
   deleteEvent, deleteInvoice, deleteProspect, deleteUpload, inviteClientUser, revokeClientUser,
   setEventDone, setInvoiceStatus, updateClientQuick, updateClientRecord, uploadAnalytics,
 } from "@/app/app/actions";
 import { INVOICE_LABEL, STATUS_LABEL, daysBetween, fmtDate, money } from "@/lib/format";
-import type { AnalyticsUpload, Client, ClientStatus, EventItem, Invoice, Prospect } from "@/lib/types";
+import type { AnalyticsUpload, Payment, Client, ClientStatus, EventItem, Invoice, Prospect } from "@/lib/types";
 import { Icon } from "./Icon";
 import { ConfirmDelete } from "./TaskList";
 
@@ -224,12 +224,15 @@ export function InvoiceRows({ invoices, clients, editable, showClient }: {
                 <td className="muted" style={{ fontSize: 14 }}>
                   {i.paid_on ? `Paid ${fmtDate(i.paid_on)}` : i.issued_on ? `Issued ${fmtDate(i.issued_on)}` : "Not issued"}
                 </td>
-                <td className="r"><span className="num">{money(i.amount_cents)}</span></td>
-                <td><span className={`pill p-${i.status}`}>{INVOICE_LABEL[i.status]}</span></td>
+                <td className="r">
+                  <span className="num">{money(i.amount_cents)}</span>
+                  {i.status === "sent" && i.paid_cents > 0 && <div className="muted num" style={{ fontSize: 13 }}>{money(i.paid_cents, { cents: true })} paid · {money(i.amount_cents - i.paid_cents, { cents: true })} left</div>}
+                </td>
+                <td><span className={`pill p-${i.status === "sent" && i.paid_cents > 0 ? "waiting" : i.status}`}>{i.status === "sent" && i.paid_cents > 0 ? "Part paid" : INVOICE_LABEL[i.status]}</span></td>
                 {editable && (
                   <td className="r">
                     <span className="row-gap" style={{ gap: 4, justifyContent: "flex-end", flexWrap: "nowrap" }}>
-                      {i.status === "sent" && <button className="btn small" type="button" disabled={pending} onClick={() => run(() => setInvoiceStatus(i.id, "paid"))}>Mark paid</button>}
+                      {i.status === "sent" && <button className="btn small" type="button" disabled={pending} onClick={() => run(() => setInvoiceStatus(i.id, "paid"))}>{i.paid_cents > 0 ? "Mark rest paid" : "Mark paid"}</button>}
                       {i.status === "draft" && <button className="btn small" type="button" disabled={pending} onClick={() => run(() => setInvoiceStatus(i.id, "sent"))}>Mark sent</button>}
                       {i.status === "paid" && <button className="btn small" type="button" disabled={pending} onClick={() => run(() => setInvoiceStatus(i.id, "sent"))}>Undo paid</button>}
                       <ConfirmDelete label={i.label} onConfirm={() => run(() => deleteInvoice(i.id))} />
@@ -398,6 +401,56 @@ export function ProspectsManager({ prospects }: { prospects: Prospect[] }) {
           <Result r={result && !result.ok ? result : null} />
         </form>
       </section>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Payments
+// ---------------------------------------------------------------------------
+export function RecordPayment({ clientId, owed }: { clientId: string; owed: number }) {
+  const { run, result, pending } = useRun();
+  const [amount, setAmount] = useState("");
+  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [method, setMethod] = useState("");
+  const [reference, setReference] = useState("");
+  return (
+    <form className="stack" style={{ gap: 12 }} onSubmit={(e) => {
+      e.preventDefault();
+      run(() => recordPayment({ client_id: clientId, amount, paid_on: date, method, reference }), () => { setAmount(""); setReference(""); });
+    }}>
+      <p className="muted" style={{ margin: 0, fontSize: 14 }}>
+        Applied to unpaid invoices oldest first. Part of an invoice can be paid. They owe {money(owed, { cents: owed % 100 !== 0 })} right now.
+      </p>
+      <div className="form-grid">
+        <label className="field"><span>Amount received ($)</span><input id={`pay-amount-${clientId}`} className="input" type="number" min="0.01" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} required /></label>
+        <label className="field"><span>Paid on</span><input id={`pay-date-${clientId}`} className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} required /></label>
+        <label className="field"><span>How (optional)</span><input id={`pay-method-${clientId}`} className="input" value={method} onChange={(e) => setMethod(e.target.value)} placeholder="Apple Pay, check, Zelle" /></label>
+        <label className="field"><span>Reference (optional)</span><input id={`pay-ref-${clientId}`} className="input" value={reference} onChange={(e) => setReference(e.target.value)} placeholder="QuickBooks #1094" /></label>
+      </div>
+      <div className="form-actions"><button className="btn primary" type="submit" disabled={pending || !owed}>Record payment</button></div>
+      <Result r={result} />
+    </form>
+  );
+}
+
+export function PaymentRows({ payments }: { payments: Payment[] }) {
+  if (!payments.length) return <div className="panel-b empty">No payments recorded yet.</div>;
+  return (
+    <div className="tbl-wrap">
+      <table style={{ minWidth: 480 }}>
+        <thead><tr><th>Paid on</th><th>How</th><th>Reference</th><th className="r">Amount</th></tr></thead>
+        <tbody>
+          {payments.map((p) => (
+            <tr key={p.id}>
+              <td>{fmtDate(p.paid_on, { month: "short", day: "numeric", year: "numeric" })}</td>
+              <td className="muted">{p.method ?? "–"}</td>
+              <td className="muted">{p.reference ?? "–"}</td>
+              <td className="r"><span className="num">{money(p.amount_cents, { cents: p.amount_cents % 100 !== 0 })}</span></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

@@ -45,7 +45,7 @@ export type Task = {
 export type EventItem = { id: string; client_id: string; on_date: string; label: string; done: boolean; visible_to_client: boolean };
 export type Invoice = {
   id: string; client_id: string; label: string; amount_cents: number; status: InvoiceStatus;
-  issued_on: string | null; due_on: string | null; paid_on: string | null; pay_url: string | null; created_at: string;
+  issued_on: string | null; due_on: string | null; paid_on: string | null; pay_url: string | null; paid_cents: number; created_at: string;
 };
 export type Prospect = { id: string; name: string; detail: string | null; note: string | null; status: ClientStatus };
 export type AnalyticsUpload = {
@@ -66,3 +66,9 @@ export type ApprovalItem = {
   id: string; approval_id: string; position: number; label: string; tag: string | null; detail: string | null;
   kind: DecisionKind; options: DecisionOption[]; response: DecisionResponse | null; responded_at: string | null;
 };
+
+export type Payment = { id: string; client_id: string; amount_cents: number; paid_on: string; method: string | null; reference: string | null; created_at: string };
+
+/** What is still owed on an invoice (0 for paid, draft or void). */
+export const owedOn = (i: Pick<Invoice, "status" | "amount_cents" | "paid_cents">) =>
+  i.status === "sent" ? Math.max(0, i.amount_cents - (i.paid_cents ?? 0)) : 0;

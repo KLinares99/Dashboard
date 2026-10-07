@@ -1,7 +1,7 @@
 -- Row level security tests. Run with: npm run db:test
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(38);
+select plan(40);
 
 -- Users: one staff, one Warriors client, one Relevate client, one unlinked client.
 -- Test-only emails, so this runs no matter which logins already exist.
@@ -47,7 +47,8 @@ select is((select count(*)::int from public.tasks where client_id <> '11111111-0
 select is((select count(*)::int from public.tasks where assignee <> 'client'), 0, 'Elevate''s own tasks are hidden');
 select ok((select count(*) from public.tasks) > 0, 'their action items are visible');
 select is((select count(*)::int from public.prospects), 0, 'prospects hidden from clients');
-select is((select count(*)::int from public.invoices), 3, 'client sees own non-draft invoices');
+select is((select count(*)::int from public.invoices), 4, 'client sees own non-draft invoices');
+select is((select count(*)::int from public.payments), 1, 'client sees their own payment');
 select is((select count(*)::int from public.profiles), 1, 'client sees only own profile');
 
 -- Writes must not stick
@@ -89,6 +90,7 @@ select is(public.answer_approval_item((select id from public.approval_items wher
 set local request.jwt.claims = '{"sub":"aaaaaaaa-0000-4000-8000-000000000003","role":"authenticated"}';
 select is((select count(*)::int from public.invoices), 0, 'Relevate cannot see Warriors invoices');
 select is((select count(*)::int from public.approvals where title = 'Forged'), 0, 'Relevate cannot see the Warriors approval');
+select is((select count(*)::int from public.payments), 0, 'Relevate cannot see Warriors payments');
 
 -- ---------- Unlinked client ----------
 set local request.jwt.claims = '{"sub":"aaaaaaaa-0000-4000-8000-000000000004","role":"authenticated"}';

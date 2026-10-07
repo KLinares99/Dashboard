@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ClientBundle } from "@/lib/data";
 import { fmtDate, money } from "@/lib/format";
+import { owedOn } from "@/lib/types";
 import type { Invoice } from "@/lib/types";
 import { Mark } from "./Icon";
 import { ApprovalCard } from "./portal/Approval";
@@ -21,6 +22,7 @@ export function clientView(b: ClientBundle) {
     invoices: b.invoices.filter((i) => i.status === "sent" || i.status === "paid"),
     approvals: [...b.approvals].sort((x, y) => (x.status === y.status ? 0 : x.status === "open" ? -1 : 1)),
     approvalItems: b.approvalItems,
+    payments: b.payments,
   };
 }
 
@@ -48,10 +50,14 @@ function InvoiceCard({ inv, today }: { inv: Invoice; today: string }) {
   const paid = inv.status === "paid";
   const dueDate = inv.due_on || inv.issued_on;
   const pastDue = !paid && dueDate != null && dueDate < today;
+  const left = owedOn(inv);
   return (
     <div className="ios-invoice">
       <span className="what">{inv.label}</span>
-      <span className="amount">{money(inv.amount_cents, { cents: inv.amount_cents % 100 !== 0 })}</span>
+      <span className="amount">{paid ? money(inv.amount_cents, { cents: inv.amount_cents % 100 !== 0 }) : money(left, { cents: left % 100 !== 0 })}</span>
+      {!paid && inv.paid_cents > 0 && (
+        <span className="what">{money(inv.paid_cents, { cents: inv.paid_cents % 100 !== 0 })} of {money(inv.amount_cents)} paid · {money(left, { cents: left % 100 !== 0 })} left</span>
+      )}
       <span className={`status ${paid ? "paid" : pastDue ? "late" : "due"}`}>
         {paid ? (
           <>
@@ -62,18 +68,18 @@ function InvoiceCard({ inv, today }: { inv: Invoice; today: string }) {
           <>{pastDue ? "Past due · was due" : "Due"}{dueDate ? ` ${fmtDate(dueDate, { month: "short", day: "numeric" })}` : ""}</>
         )}
       </span>
-      {!paid && inv.pay_url && <a className="ios-btn" href={inv.pay_url} target="_blank" rel="noopener">Pay {money(inv.amount_cents, { cents: inv.amount_cents % 100 !== 0 })}</a>}
+      {!paid && inv.pay_url && <a className="ios-btn" href={inv.pay_url} target="_blank" rel="noopener">Pay {money(left, { cents: left % 100 !== 0 })}</a>}
     </div>
   );
 }
 
 /** Invoices due now. If nothing is due, this month's paid invoice, else a quiet "all paid" card. */
 export function InvoiceSection({ invoices, today, allHref }: { invoices: Invoice[]; today: string; allHref: string }) {
-  const due = invoices.filter((i) => i.status === "sent").sort((a, b) => (a.issued_on ?? "").localeCompare(b.issued_on ?? ""));
+  const due = invoices.filter((i) => owedOn(i) > 0).sort((a, b) => (a.issued_on ?? "").localeCompare(b.issued_on ?? ""));
   const month = today.slice(0, 7);
   const paidThisMonth = invoices.filter((i) => i.status === "paid" && (i.paid_on ?? i.issued_on ?? "").startsWith(month));
   const show = due.length ? due : paidThisMonth.slice(0, 1);
-  const total = due.reduce((a, i) => a + i.amount_cents, 0);
+  const total = due.reduce((a, i) => a + owedOn(i), 0);
   return (
     <section className="ios-section">
       <div className="ios-section-h">
@@ -133,12 +139,25 @@ export function AllInvoices({ bundle, back }: { bundle: ClientBundle; back: stri
       <div className="ios-card">
         {list.length ? list.map((i) => (
           <div key={i.id} className="ios-row">
-            <span className="grow">{i.label}<span className="sub">{i.status === "paid" ? `Paid ${i.paid_on ? fmtDate(i.paid_on, { month: "short", day: "numeric", year: "numeric" }) : ""}` : "Due"}</span></span>
+            <span className="grow">{i.label}<span className="sub">{i.status === "paid" ? `Paid ${i.paid_on ? fmtDate(i.paid_on, { month: "short", day: "numeric", year: "numeric" }) : ""}` : i.paid_cents > 0 ? `${money(i.paid_cents, { cents: i.paid_cents % 100 !== 0 })} paid · ${money(owedOn(i), { cents: owedOn(i) % 100 !== 0 })} left` : "Due"}</span></span>
             <span style={{ fontVariantNumeric: "tabular-nums", color: i.status === "paid" ? "var(--label-2)" : "var(--label)" }}>{money(i.amount_cents, { cents: i.amount_cents % 100 !== 0 })}</span>
             {i.status === "sent" && i.pay_url && <a href={i.pay_url} target="_blank" rel="noopener">Pay</a>}
           </div>
         )) : <div className="ios-empty">No invoices yet.</div>}
       </div>
+      {v.payments.length > 0 && (
+        <section className="ios-section">
+          <div className="ios-section-h"><h2>Payments</h2></div>
+          <div className="ios-card">
+            {v.payments.map((p) => (
+              <div key={p.id} className="ios-row">
+                <span className="grow">{fmtDate(p.paid_on, { month: "long", day: "numeric", year: "numeric" })}<span className="sub">{[p.method, p.reference].filter(Boolean).join(" · ") || "Payment"}</span></span>
+                <span style={{ fontVariantNumeric: "tabular-nums", color: "var(--green)" }}>{money(p.amount_cents, { cents: p.amount_cents % 100 !== 0 })}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
     </main>
   );
 }

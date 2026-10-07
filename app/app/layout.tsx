@@ -7,10 +7,10 @@ export default async function StaffLayout({ children }: { children: React.ReactN
   const db = await createClient();
   const [{ count: urgent }, { data: unpaid }, { count: clientCount }] = await Promise.all([
     db.from("tasks").select("id, clients!inner(archived)", { count: "exact", head: true }).eq("done", false).eq("flag", "urgent").eq("clients.archived", false),
-    db.from("invoices").select("amount_cents, clients!inner(archived)").eq("status", "sent").eq("clients.archived", false),
+    db.from("invoices").select("amount_cents, paid_cents, clients!inner(archived)").eq("status", "sent").eq("clients.archived", false),
     db.from("clients").select("id", { count: "exact", head: true }).eq("archived", false).neq("type", "internal"),
   ]);
-  const owed = (unpaid ?? []).reduce((a, i) => a + i.amount_cents, 0);
+  const owed = (unpaid ?? []).reduce((a, i) => a + i.amount_cents - i.paid_cents, 0);
   return (
     <Shell footLabel="ELEVATE STAFF" who={me.email} nav={[
       { href: "/app", label: "Pulse", icon: "pulse" },

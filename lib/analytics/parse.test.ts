@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { ParseError, guessSource, parseAnalyticsCsv, parseDate, parseNumber } from "./parse";
 
@@ -11,6 +12,8 @@ describe("parseDate", () => {
     ["9/26/26", "2026-09-26"],
     ["Sep 26, 2026", "2026-09-26"],
     ["September 26 2026", "2026-09-26"],
+    ["10/07/2026 07:01", "2026-10-07"], // Meta "Publish time"
+    ["10/7/2026, 7:01 PM", "2026-10-07"],
   ])("%s -> %s", (raw, iso) => expect(parseDate(raw)).toBe(iso));
 
   it.each(["", "Total", "2026-02-30", "13/01/2026", "12345", null])("rejects %s", (raw) =>
@@ -98,5 +101,29 @@ describe("guessSource", () => {
     expect(guessSource("Facebook-insights.csv", "Date,Reach")).toBe("meta");
     expect(guessSource("x.csv", "Date,Calls,Direction requests")).toBe("gbp");
     expect(guessSource("x.csv", "Date,Widgets")).toBe("generic");
+  });
+});
+
+describe("Meta per-post export (90 days, Relevate)", () => {
+  const r = parseAnalyticsCsv(readFileSync("e2e/fixtures/meta-posts-90d.csv", "utf8"));
+  const total = (m: string) => r.points.filter((p) => p.metric === m).reduce((a, p) => a + p.value, 0);
+
+  it("dates each post by its publish time, not the 'Lifetime' column", () => {
+    expect(r.dateColumn).toBe("Publish time");
+    expect(r.perPost).toBe(true);
+    expect([r.dateFrom, r.dateTo]).toEqual(["2026-07-20", "2026-10-07"]);
+    expect(r.skippedRows).toBe(0);
+  });
+
+  it("keeps captions with hashtag lines intact", () => {
+    expect(total("Posts")).toBe(38);
+  });
+
+  it("keeps the useful numbers with plain names, and drops IDs, flags, zeros and repeats", () => {
+    expect(r.metrics).toEqual(["Posts", "Views", "Reach", "Engagements", "Reactions", "Comments", "Shares",
+      "Total clicks", "Other clicks", "Link clicks", "Photo clicks"]);
+    expect(total("Views")).toBe(15880);
+    expect(total("Reach")).toBe(7419);
+    expect(r.points.find((p) => p.date === "2026-10-05" && p.metric === "Views")?.value).toBe(2157);
   });
 });

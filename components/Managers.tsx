@@ -8,6 +8,7 @@ import {
 } from "@/app/app/actions";
 import { INVOICE_LABEL, STATUS_LABEL, daysBetween, fmtDate, money } from "@/lib/format";
 import type { AnalyticsUpload, Payment, Client, ClientStatus, EventItem, Invoice, Prospect } from "@/lib/types";
+import { guessSource } from "@/lib/analytics/parse";
 import { Icon } from "./Icon";
 import { ConfirmDelete } from "./TaskList";
 
@@ -328,20 +329,25 @@ export function UploadAnalytics({ clientId, uploads }: { clientId: string; uploa
   const [state, formAction, pending] = useActionState(uploadAnalytics, null);
   const del = useRun();
   const SOURCE: Record<string, string> = { ga4: "Google Analytics 4", meta: "Meta (Facebook / Instagram)", gbp: "Google Business Profile", generic: "Other spreadsheet" };
+  const [source, setSource] = useState("ga4");
+  // Pre-select where the file came from by peeking at its name and first lines.
+  const pick = async (file: File | undefined) => {
+    if (file) setSource(guessSource(file.name, await file.slice(0, 4000).text()));
+  };
   return (
     <div className="stack" style={{ gap: 16 }}>
       <form action={formAction} className="stack" style={{ gap: 12 }}>
         <input type="hidden" name="client_id" value={clientId} />
         <div className="form-grid">
-          <label className="field"><span>CSV export</span><input id={`up-file-${clientId}`} className="input" type="file" name="file" accept=".csv,text/csv" required /></label>
+          <label className="field"><span>CSV export</span><input id={`up-file-${clientId}`} className="input" type="file" name="file" accept=".csv,text/csv" required onChange={(e) => pick(e.target.files?.[0])} /></label>
           <label className="field"><span>Where it came from</span>
-            <select id={`up-source-${clientId}`} className="input" name="source" defaultValue="ga4">
+            <select id={`up-source-${clientId}`} className="input" name="source" value={source} onChange={(e) => setSource(e.target.value)}>
               {Object.entries(SOURCE).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
             </select>
           </label>
         </div>
         <p className="muted" style={{ margin: 0, fontSize: 14 }}>
-          Export the report broken down by day. Any file with a date column and number columns works. Uploading the same dates again replaces the old numbers.
+          Export the report broken down by day, or Meta&apos;s per-post export (each post counts on the day it went out). Any file with a date column and number columns works. Uploading the same dates again replaces the old numbers.
         </p>
         <div className="form-actions"><button className="btn primary" type="submit" disabled={pending}><Icon name="upload" size={18} />{pending ? "Reading file…" : "Upload and chart"}</button></div>
         <Result r={state} />

@@ -109,6 +109,16 @@ test.describe("staff", () => {
     await expect(staff.locator(".chart svg").first()).toBeVisible();
   });
 
+  test("charts a Meta per-post export by publish date", async () => {
+    await staff.goto("/app/clients/relevate?tab=analytics");
+    await staff.getByLabel("CSV export").setInputFiles(path.join(__dirname, "fixtures/meta-posts-90d.csv"));
+    await expect(staff.getByLabel("Where it came from")).toHaveValue("meta"); // recognised from the file
+    await staff.getByRole("button", { name: "Upload and chart" }).click();
+    await expect(staff.getByRole("status")).toContainText("Imported 11 metrics");
+    await expect(staff.getByRole("status")).toContainText("per-post export");
+    for (const m of ["Posts", "Views", "Reach", "Engagements"]) await expect(staff.locator(".chart-head", { hasText: m }).first()).toBeVisible();
+  });
+
   test("rejects a file it can't chart, with a reason", async () => {
     await staff.goto("/app/clients/warriors?tab=analytics");
     await staff.getByLabel("CSV export").setInputFiles({ name: "pages.csv", mimeType: "text/csv", buffer: Buffer.from("Page,Views\n/home,4\n") });

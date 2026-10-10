@@ -29,3 +29,11 @@ describe("niceTicks", () => {
     expect(niceTicks(1)).toEqual([0, 0.25, 0.5, 0.75, 1]);
   });
 });
+
+describe("toSeries order", () => {
+  it("puts headline numbers first", () => {
+    const row = (metric: string) => ({ client_id: "c", metric, on_date: "2026-10-01", value: 1, source: "meta" });
+    expect(toSeries(["Comments", "Reach", "Posts", "Views", "Engagements"].map(row) as never).map((s) => s.metric))
+      .toEqual(["Views", "Reach", "Engagements", "Posts", "Comments"]);
+  });
+});

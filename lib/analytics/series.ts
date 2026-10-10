@@ -10,6 +10,10 @@ export const shiftISO = (s: string, days: number) => {
   return iso(d);
 };
 
+/** Headline numbers first; anything not listed follows, busiest series first. */
+const LEAD = ["views", "reach", "engagements", "posts", "sessions", "active users", "users", "total clicks", "link clicks", "impressions"];
+const rank = (m: string) => { const i = LEAD.indexOf(m.toLowerCase()); return i < 0 ? LEAD.length : i; };
+
 /** Groups raw metric rows into one series per source + metric. */
 export function toSeries(rows: Metric[]): Series[] {
   const map = new Map<string, Series>();
@@ -20,7 +24,8 @@ export function toSeries(rows: Metric[]): Series[] {
     s.points.push({ date: r.on_date, value: Number(r.value) });
   }
   for (const s of map.values()) s.points.sort((a, b) => (a.date < b.date ? -1 : 1));
-  return [...map.values()].sort((a, b) => a.source.localeCompare(b.source) || b.points.length - a.points.length);
+  return [...map.values()].sort((a, b) =>
+    a.source.localeCompare(b.source) || rank(a.metric) - rank(b.metric) || b.points.length - a.points.length);
 }
 
 /**

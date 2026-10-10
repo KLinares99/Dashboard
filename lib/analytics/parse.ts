@@ -5,12 +5,18 @@ import Papa from "papaparse";
  * or any spreadsheet with a date column) into daily metric values.
  *
  * Rules:
- * - Lines starting with "#" are comments (GA4 puts report metadata there).
+ * - Lines starting with "#" are comments (GA4 puts report metadata there),
+ *   unless they sit inside a quoted cell.
  * - The date column is found by name first, then by content.
  * - Every other column where most values are numbers becomes a metric.
  * - Rows without a readable date (totals, blanks) are skipped.
  * - Several rows for the same date (a breakdown by page or campaign) are
  *   summed, except rates and averages, which are averaged.
+ * - ID and yes/no columns, columns that are all zero, and columns that repeat
+ *   another one (Meta's "Views from Organic posts" when nothing was boosted)
+ *   are left out.
+ * - Per-post exports (Meta's "Post ID" / "Permalink" files) count each post's
+ *   lifetime numbers on the day it was published, plus a "Posts" count.
  */
 
 export type MetricPoint = { date: string; metric: string; value: number };
@@ -22,11 +28,23 @@ export type ParseResult = {
   dateFrom: string;
   dateTo: string;
   skippedRows: number;
+  /** One row per post (lifetime numbers), rather than one row per day. */
+  perPost: boolean;
 };
 
 export class ParseError extends Error {}
 
-const DATE_HEADER = /^(date|day|reporting starts|reporting start|start date|week|month|fecha)$/i;
+const DATE_HEADER = /^(date|day|reporting starts|reporting start|start date|week|month|fecha|publish time|published|post date)$/i;
+const SKIP_HEADER = /(^|\s)id$|^is |^permalink$|^duration/i;
+const POST_HEADER = /^(post id|permalink)$/i;
+/** Plainer names for Meta's longest column headers. */
+const RENAME: Record<string, string> = {
+  "reactions, comments and shares": "Engagements",
+  "matched audience targeting consumption (photo click)": "Photo clicks",
+  "link clicks": "Link clicks",
+  "other clicks": "Other clicks",
+};
+const label = (h: string) => RENAME[h.trim().toLowerCase()] ?? h.trim();
 export const RATE_HEADER = /(rate|%|avg|average|ctr|per |duration|position|frequency|cpm|cpc|cost per)/i;
 const MONTHS: Record<string, number> = {
   jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, sept: 9, oct: 10, nov: 11, dec: 12,
@@ -49,7 +67,7 @@ export function parseDate(raw: unknown): string | null {
   let m: RegExpMatchArray | null;
   if ((m = s.match(/^(\d{4})(\d{2})(\d{2})$/))) return validDate(+m[1], +m[2], +m[3]); // GA4: 20260926
   if ((m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:[T ].*)?$/))) return validDate(+m[1], +m[2], +m[3]);
-  if ((m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2}|\d{4})$/))) {
+  if ((m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2}|\d{4})(?:,?\s+\d{1,2}:\d{2}(?::\d{2})?(?:\s*[AP]M)?)?$/i))) {
     // US order (M/D/Y): all Elevate clients are US-based.
     const y = m[3].length === 2 ? 2000 + +m[3] : +m[3];
     return validDate(y, +m[1], +m[2]);
@@ -75,12 +93,14 @@ export function parseNumber(raw: unknown): number | null {
 }
 
 export function parseAnalyticsCsv(text: string): ParseResult {
-  const cleaned = text
-    .replace(/^﻿/, "")
-    .split(/\r?\n/)
-    .filter((line) => !line.trimStart().startsWith("#"))
-    .join("\n")
-    .trim();
+  // Drop "#" comment lines, but not lines inside a quoted cell (a caption full of hashtags).
+  let inQuote = false;
+  const kept: string[] = [];
+  for (const line of text.replace(/^\uFEFF/, "").split(/\r?\n/)) {
+    if (inQuote || !line.trimStart().startsWith("#")) kept.push(line);
+    if ((line.match(/"/g)?.length ?? 0) % 2) inQuote = !inQuote;
+  }
+  const cleaned = kept.join("\n").trim();
   if (!cleaned) throw new ParseError("The file is empty.");
 
   const parsed = Papa.parse<Record<string, string>>(cleaned, { header: true, skipEmptyLines: true });
@@ -102,9 +122,17 @@ export function parseAnalyticsCsv(text: string): ParseResult {
     throw new ParseError("Couldn't find a date column. Export the report broken down by day.");
   }
 
-  const metricCols = headers.filter(
-    (h) => h !== dateColumn && share(h, (v) => parseNumber(v) !== null) >= 0.8,
-  );
+  const column = (h: string) => rows.map((r) => parseNumber(r[h]) ?? 0).join(",");
+  const seen = new Set<string>();
+  const metricCols = headers.filter((h) => {
+    if (h === dateColumn || SKIP_HEADER.test(h.trim()) || share(h, (v) => parseNumber(v) !== null) < 0.8) return false;
+    if (!rows.some((r) => (parseNumber(r[h]) ?? 0) !== 0)) return false; // nothing but zeros
+    const sig = column(h);
+    if (seen.has(sig)) return false; // same numbers as a column already kept
+    seen.add(sig);
+    return true;
+  });
+  const perPost = headers.some((h) => POST_HEADER.test(h.trim()));
   if (!metricCols.length) throw new ParseError("Couldn't find any number columns to chart.");
 
   const sums = new Map<string, { total: number; count: number }>();
@@ -112,10 +140,16 @@ export function parseAnalyticsCsv(text: string): ParseResult {
   for (const row of rows) {
     const date = parseDate(row[dateColumn]);
     if (!date) { skippedRows++; continue; }
+    if (perPost) {
+      const key = `Posts\u0000${date}`;
+      const cur = sums.get(key) ?? { total: 0, count: 0 };
+      cur.total += 1; cur.count += 1;
+      sums.set(key, cur);
+    }
     for (const col of metricCols) {
       const v = parseNumber(row[col]);
       if (v == null) continue;
-      const key = `${col.trim()}\u0000${date}`;
+      const key = `${label(col)}\u0000${date}`;
       const cur = sums.get(key) ?? { total: 0, count: 0 };
       cur.total += v; cur.count += 1;
       sums.set(key, cur);
@@ -133,11 +167,12 @@ export function parseAnalyticsCsv(text: string): ParseResult {
   points.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.metric.localeCompare(b.metric)));
   return {
     points,
-    metrics: metricCols.map((c) => c.trim()),
+    metrics: [...(perPost ? ["Posts"] : []), ...metricCols.map(label)],
     dateColumn,
     dateFrom: points[0].date,
     dateTo: points[points.length - 1].date,
     skippedRows,
+    perPost,
   };
 }
 

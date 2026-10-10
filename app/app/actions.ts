@@ -387,7 +387,8 @@ export async function uploadAnalytics(_prev: ActionResult | null, fd: FormData):
   const skipped = result.skippedRows ? ` Skipped ${result.skippedRows} row${result.skippedRows === 1 ? "" : "s"} without a date (totals or blanks).` : "";
   return {
     ok: true,
-    message: `Imported ${result.metrics.length} metric${result.metrics.length === 1 ? "" : "s"} (${result.metrics.join(", ")}) from ${result.dateFrom} to ${result.dateTo}.${skipped}`,
+    message: `Imported ${result.metrics.length} metric${result.metrics.length === 1 ? "" : "s"} (${result.metrics.join(", ")}) from ${result.dateFrom} to ${result.dateTo}.${skipped}` +
+      (result.perPost ? " This is a per-post export: each post's lifetime numbers count on the day it was published, and a newer export updates them." : ""),
   };
 }
 

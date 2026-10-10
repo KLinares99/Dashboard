@@ -10,6 +10,7 @@ import { MetricsView } from "@/components/MetricsView";
 import { Headline } from "@/components/Portal";
 import { TopBar } from "@/components/Shell";
 import { TaskList } from "@/components/TaskList";
+import { TopPosts } from "@/components/TopPosts";
 import { loadClient, loadClientLogins, loadWorkspace, progress, unpaidCents } from "@/lib/data";
 import { STATUS_LABEL, TYPE_LABEL, fmtDate, money, priceLabel, todayISO } from "@/lib/format";
 import { owedOn } from "@/lib/types";
@@ -33,7 +34,7 @@ export default async function ClientPage({ params, searchParams }: {
   const tab: Tab = (TABS.find(([k]) => k === sp.tab)?.[0] ?? "overview") as Tab;
   const [bundle, ws] = await Promise.all([loadClient({ slug }), loadWorkspace()]);
   if (!bundle) notFound();
-  const { client: c, tasks, events, invoices, uploads, metrics } = bundle;
+  const { client: c, tasks, events, invoices, uploads, metrics, posts } = bundle;
   const ours = tasks.filter((t) => t.assignee === "elevate");
   const theirs = tasks.filter((t) => t.assignee === "client");
   const today = todayISO();
@@ -124,6 +125,7 @@ export default async function ClientPage({ params, searchParams }: {
         {tab === "analytics" && (
           <>
             <MetricsView metrics={metrics} emptyText="No analytics yet. Upload a CSV export below to create charts." />
+            <TopPosts posts={posts} />
             <section className="panel">
               <div className="panel-h"><span className="label">Upload analytics</span></div>
               <div className="panel-b"><UploadAnalytics clientId={c.id} uploads={uploads} /></div>

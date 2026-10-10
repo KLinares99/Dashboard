@@ -383,6 +383,21 @@ export async function uploadAnalytics(_prev: ActionResult | null, fd: FormData):
     }
   }
 
+  if (result.posts.length) {
+    const posts = result.posts.map((p) => ({
+      client_id: clientId, upload_id: uploadId, source: source.data, external_id: p.externalId, published_on: p.date,
+      caption: p.caption?.slice(0, 5000) ?? null, post_type: p.postType, permalink: p.permalink, stats: p.stats,
+    }));
+    for (let i = 0; i < posts.length; i += 500) {
+      const { error } = await db.from("social_posts").upsert(posts.slice(i, i + 500), { onConflict: "client_id,external_id" });
+      if (error) {
+        await db.from("analytics_uploads").delete().eq("id", uploadId);
+        await db.storage.from("analytics").remove([path]);
+        return fail(`Couldn't save the posts: ${error.message}`);
+      }
+    }
+  }
+
   refresh();
   const skipped = result.skippedRows ? ` Skipped ${result.skippedRows} row${result.skippedRows === 1 ? "" : "s"} without a date (totals or blanks).` : "";
   return {

@@ -119,6 +119,21 @@ describe("Meta per-post export (90 days, Relevate)", () => {
     expect(total("Posts")).toBe(38);
   });
 
+  it("returns each post for the Top posts list", () => {
+    expect(r.posts).toHaveLength(38);
+    const best = [...r.posts].sort((a, b) => b.stats.Views - a.stats.Views)[0];
+    expect(best.externalId).toBe("935204492959095");
+    expect(best.date).toBe("2026-08-19");
+    expect(best.caption?.split("\n")[0]).toBe("Nadie se libera de deudas sintiéndose juzgado. ");
+    expect(best.postType).toBe("Photos");
+    expect(best.permalink).toMatch(/^https:\/\/www\.facebook\.com\//);
+    expect(best.stats).toMatchObject({ Views: 2471, Reach: 1058, Engagements: 36, "Total clicks": 102 });
+  });
+
+  it("returns no posts for a daily report", () => {
+    expect(parseAnalyticsCsv("Date,Sessions\n2026-10-01,5\n2026-10-02,7").posts).toEqual([]);
+  });
+
   it("keeps the useful numbers with plain names, and drops IDs, flags, zeros and repeats", () => {
     expect(r.metrics).toEqual(["Posts", "Views", "Reach", "Engagements", "Reactions", "Comments", "Shares",
       "Total clicks", "Other clicks", "Link clicks", "Photo clicks"]);

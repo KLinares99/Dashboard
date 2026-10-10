@@ -1,7 +1,7 @@
 -- Row level security tests. Run with: npm run db:test
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(40);
+select plan(43);
 
 -- Users: one staff, one Warriors client, one Relevate client, one unlinked client.
 -- Test-only emails, so this runs no matter which logins already exist.
@@ -27,6 +27,12 @@ insert into public.approvals (id, client_id, title) values ('bbbbbbbb-0000-4000-
 insert into public.approval_items (id, approval_id, label) values ('bbbbbbbb-0000-4000-8000-000000000002', 'bbbbbbbb-0000-4000-8000-000000000001', 'Relevate item');
 select set_config('test.forged', (select id::text from public.approvals where title = 'Forged'), true);
 
+-- A Warriors post from a per-post export.
+insert into public.analytics_uploads (id, client_id, source, filename, storage_path) values
+  ('cccccccc-0000-4000-8000-000000000001', '11111111-0000-4000-8000-000000000004', 'meta', 'posts.csv', 'x/posts.csv');
+insert into public.social_posts (client_id, upload_id, source, external_id, published_on, stats) values
+  ('11111111-0000-4000-8000-000000000004', 'cccccccc-0000-4000-8000-000000000001', 'meta', 'rls-post-1', '2026-10-01', '{"Views": 10}');
+
 -- Total as the database owner sees it, to compare against below.
 select set_config('test.total_clients', (select count(*) from public.clients)::text, true);
 
@@ -49,6 +55,8 @@ select ok((select count(*) from public.tasks) > 0, 'their action items are visib
 select is((select count(*)::int from public.prospects), 0, 'prospects hidden from clients');
 select is((select count(*)::int from public.invoices), 4, 'client sees own non-draft invoices');
 select is((select count(*)::int from public.payments), 1, 'client sees their own payment');
+select is((select count(*)::int from public.social_posts), 1, 'client sees their own posts');
+select throws_ok($$ insert into public.social_posts (client_id, upload_id, source, external_id, published_on) values ('11111111-0000-4000-8000-000000000004', 'cccccccc-0000-4000-8000-000000000001', 'meta', 'rls-post-2', '2026-10-02') $$, '42501', null, 'client cannot add posts');
 select is((select count(*)::int from public.profiles), 1, 'client sees only own profile');
 
 -- Writes must not stick
@@ -91,6 +99,7 @@ set local request.jwt.claims = '{"sub":"aaaaaaaa-0000-4000-8000-000000000003","r
 select is((select count(*)::int from public.invoices), 0, 'Relevate cannot see Warriors invoices');
 select is((select count(*)::int from public.approvals where title = 'Forged'), 0, 'Relevate cannot see the Warriors approval');
 select is((select count(*)::int from public.payments), 0, 'Relevate cannot see Warriors payments');
+select is((select count(*)::int from public.social_posts), 0, 'Relevate cannot see Warriors posts');
 
 -- ---------- Unlinked client ----------
 set local request.jwt.claims = '{"sub":"aaaaaaaa-0000-4000-8000-000000000004","role":"authenticated"}';

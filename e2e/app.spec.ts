@@ -117,6 +117,28 @@ test.describe("staff", () => {
     await expect(staff.getByRole("status")).toContainText("Imported 11 metrics");
     await expect(staff.getByRole("status")).toContainText("per-post export");
     for (const m of ["Posts", "Views", "Reach", "Engagements"]) await expect(staff.locator(".chart-head", { hasText: m }).first()).toBeVisible();
+
+    // Top posts: ranked by views, re-rank by clicks, link out to Facebook
+    const top = staff.getByRole("region", { name: "Top posts" });
+    await top.getByRole("button", { name: "All time" }).click();
+    await expect(top.locator(".top-post").first()).toContainText("Nadie se libera de deudas");
+    await expect(top.locator(".top-post").first()).toContainText("2,471");
+    await expect(top.locator(".top-post")).toHaveCount(10);
+    await top.getByRole("button", { name: "Show all 38" }).click();
+    await expect(top.locator(".top-post")).toHaveCount(38);
+    await top.getByRole("button", { name: "Clicks" }).click();
+    await expect(top.locator(".top-post").first().locator(".tp-num")).toContainText("102");
+    await expect(top.locator(".top-post").first().getByRole("link")).toHaveAttribute("href", /^https:\/\/www\.facebook\.com\//);
+
+    // Uploading the same export again updates the posts instead of doubling them
+    await staff.getByLabel("CSV export").setInputFiles(path.join(__dirname, "fixtures/meta-posts-90d.csv"));
+    await staff.getByLabel("Where it came from").selectOption("generic"); // even filed under another source
+    await staff.getByRole("button", { name: "Upload and chart" }).click();
+    await expect(staff.getByRole("status")).toContainText("Imported 11 metrics");
+    const relevate = (await admin().from("clients").select("id").eq("slug", "relevate").single()).data!.id;
+    expect((await admin().from("social_posts").select("id", { count: "exact", head: true }).eq("client_id", relevate)).count).toBe(38);
+    await staff.reload();
+    await expect(staff.getByRole("region", { name: "Top posts" }).getByText(/^Top posts/)).toContainText("38");
   });
 
   test("rejects a file it can't chart, with a reason", async () => {

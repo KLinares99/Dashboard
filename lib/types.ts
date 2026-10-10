@@ -72,3 +72,16 @@ export type Payment = { id: string; client_id: string; amount_cents: number; pai
 /** What is still owed on an invoice (0 for paid, draft or void). */
 export const owedOn = (i: Pick<Invoice, "status" | "amount_cents" | "paid_cents">) =>
   i.status === "sent" ? Math.max(0, i.amount_cents - (i.paid_cents ?? 0)) : 0;
+
+export type SocialPost = {
+  id: string;
+  client_id: string;
+  upload_id: string;
+  source: string;
+  external_id: string;
+  published_on: string;
+  caption: string | null;
+  post_type: string | null;
+  permalink: string | null;
+  stats: Record<string, number>;
+};

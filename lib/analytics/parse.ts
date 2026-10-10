@@ -21,6 +21,16 @@ import Papa from "papaparse";
 
 export type MetricPoint = { date: string; metric: string; value: number };
 
+/** One post from a per-post export, with its lifetime numbers by metric name. */
+export type PostRow = {
+  externalId: string;
+  date: string;
+  caption: string | null;
+  postType: string | null;
+  permalink: string | null;
+  stats: Record<string, number>;
+};
+
 export type ParseResult = {
   points: MetricPoint[];
   metrics: string[];
@@ -30,6 +40,8 @@ export type ParseResult = {
   skippedRows: number;
   /** One row per post (lifetime numbers), rather than one row per day. */
   perPost: boolean;
+  /** The posts themselves, for a per-post export; empty otherwise. */
+  posts: PostRow[];
 };
 
 export class ParseError extends Error {}
@@ -133,6 +145,10 @@ export function parseAnalyticsCsv(text: string): ParseResult {
     return true;
   });
   const perPost = headers.some((h) => POST_HEADER.test(h.trim()));
+  const col = (re: RegExp) => headers.find((h) => re.test(h.trim()));
+  const idCol = col(/^post id$/i), linkCol = col(/^permalink$/i), typeCol = col(/^post type$/i);
+  const captionCols = [col(/^title$/i), col(/^description$/i), col(/^(caption|message)$/i)].filter(Boolean) as string[];
+  const posts: PostRow[] = [];
   if (!metricCols.length) throw new ParseError("Couldn't find any number columns to chart.");
 
   const sums = new Map<string, { total: number; count: number }>();
@@ -141,6 +157,15 @@ export function parseAnalyticsCsv(text: string): ParseResult {
     const date = parseDate(row[dateColumn]);
     if (!date) { skippedRows++; continue; }
     if (perPost) {
+      const permalink = linkCol && /^https:\/\//.test(row[linkCol]?.trim() ?? "") ? row[linkCol].trim() : null;
+      const externalId = (idCol && row[idCol]?.trim()) || permalink;
+      if (externalId) {
+        const stats: Record<string, number> = {};
+        for (const c of metricCols) { const v = parseNumber(row[c]); if (v != null) stats[label(c)] = v; }
+        const caption = captionCols.map((c) => row[c]?.trim()).find(Boolean) ?? null;
+        const postType = typeCol ? row[typeCol]?.trim() || null : null;
+        posts.push({ externalId, date, caption, postType, permalink, stats });
+      }
       const key = `Posts\u0000${date}`;
       const cur = sums.get(key) ?? { total: 0, count: 0 };
       cur.total += 1; cur.count += 1;
@@ -173,6 +198,7 @@ export function parseAnalyticsCsv(text: string): ParseResult {
     dateTo: points[points.length - 1].date,
     skippedRows,
     perPost,
+    posts,
   };
 }
 
